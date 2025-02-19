@@ -1,0 +1,68 @@
+---
+title: "merqury_blob"
+output: html_document
+date: "2025-01-23"
+---
+```{r}
+require("argparse")
+require("ggplot2")
+require("scales")
+require("stringr")
+```
+```{r pressure, echo=FALSE}
+blob_plot <- function(dat=NULL,plot_title=NULL) {
+  print(dat)
+  plot_title=str_extract(dat, "(?<=\\.)[^.]+(?=\\.)")
+  print(plot_title)
+  
+  dat=read.table(dat, header=TRUE, comment.char="")
+
+  max_total=max(max(dat[,3]), max(dat[,4])) * 1.01
+  col_lab=names(dat)[1]
+  x_lab=names(dat)[3]
+  y_lab=names(dat)[4]
+  print(x_lab)
+  print(y_lab)
+
+  g=ggplot(dat, aes(x=dat[,3], y=dat[,4], fill=dat[,1], size=dat[,5])) +
+    geom_point(shape=21, alpha=0.3) + theme_bw() +
+    scale_color_brewer(palette = "Set1") +
+    scale_fill_brewer(palette = "Set1") +     # Set1 -> Red / Blue. Set2 -> Green / Orange.
+    scale_x_continuous(labels=comma, limits = c(0, max_total)) +
+    scale_y_continuous(labels=comma, limits = c(0, max_total)) +
+    scale_size_continuous(labels=comma, range = c(1, 10), name = "Total k-mers (size)") +
+    theme(legend.text = element_text(size=11),
+          legend.position = c(0.95,0.95),  # Modify this if the legend is covering your favorite circle
+          legend.background = element_rect(size=0.5, linetype="solid", colour ="black"),
+          legend.box.just = "right",
+          legend.justification = c("right", "top"),
+          axis.title=element_text(size=14,face="bold"),
+          axis.text=element_text(size=12)) +
+    guides( size = guide_legend(order = 1),
+            fill = guide_legend(override.aes = list(size=5, alpha=1), order = 2, title = col_lab)) +
+    xlab(x_lab) + ylab(y_lab) + labs(title = plot_title)
+  
+  return(g)
+}
+```
+
+```{r}
+archivos <- list.files(pattern = "count$")
+graficos <- list()
+
+for (a in archivos){
+  plotTitle=str_extract(a, "(?<=\\.)[^.]+(?=\\.)")
+  assign(plotTitle,blob_plot(dat = a , plot_title = plotTitle))
+  
+}
+```
+
+
+```{r}
+library(patchwork)
+
+png("merqury_all_blobs.png",width = 1500, height = 1000)
+(verkko | HIFIASM_TRIO_ONT | HG002_asm_trio_dip) / (flye_rfhap_ont  | RFHAP_HIFIASM_ONT | hg002_hifiasm_hap_asm_l0)
+dev.off
+```
+
