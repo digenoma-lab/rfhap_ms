@@ -1,0 +1,178 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-11-27"
+---
+
+
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+library(patchwork)
+library(ggvenn)
+library(randomForest)
+library(forcats)
+
+```
+
+####Venn
+```{r}
+merged_all = readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/classification_comparison/random_forest/train-v03/all_comparison.rds")
+```
+
+```{r cars}
+comparison_hg002 = merged_all %>% filter(dataset == "HG002") %>% select(-norm_trainv03)
+head(comparison_hg002)
+saveRDS(comparison_hg002, "hg002_classif_comparison.rds")
+```
+
+
+
+```{r pressure, echo=FALSE}
+df <- comparison_hg002
+```
+
+```{r}
+n_total <- nrow(df)
+
+matches_all <- df %>% filter(hifiasm == trio_binning & hifiasm == no_norm_trainv03)
+n_all <- nrow(matches_all); pct_all <- round(n_all / n_total * 100, 2)
+
+matches_hifi_trio <- df %>% filter(hifiasm == trio_binning)
+n_hifi_trio <- nrow(matches_hifi_trio); pct_hifi_trio <- round(n_hifi_trio / n_total * 100, 2)
+
+matches_hifi_nonorm <- df %>% filter(hifiasm == no_norm_trainv03)
+n_hifi_nonorm <- nrow(matches_hifi_nonorm); pct_hifi_nonorm <- round(n_hifi_nonorm / n_total * 100, 2)
+
+matches_trio_nonorm <- df %>% filter(trio_binning == no_norm_trainv03)
+n_trio_nonorm <- nrow(matches_trio_nonorm); pct_trio_nonorm <- round(n_trio_nonorm / n_total * 100, 2)
+
+resumen <- tibble::tibble(
+  comparison = c("3-way (all equal)", "hifiasm == trio_binning", "hifiasm == no_norm", "trio_binning == no_norm"),
+  count = c(n_all, n_hifi_trio, n_hifi_nonorm, n_trio_nonorm),
+  pct = c(pct_all, pct_hifi_trio, pct_hifi_nonorm, pct_trio_nonorm)
+)
+print(resumen)
+```
+
+```{r}
+venn_sets <- list(
+  hifi_trio    = matches_hifi_trio$read_id,
+  hifi_nonorm  = matches_hifi_nonorm$read_id,
+  trio_nonorm  = matches_trio_nonorm$read_id
+)
+
+# Mostrar conteos en la consola (regiones del Venn)
+A <- venn_sets$hifi_trio
+B <- venn_sets$hifi_nonorm
+C <- venn_sets$trio_nonorm
+```
+
+```{r}
+only_A <- setdiff(A, union(B, C))
+only_B <- setdiff(B, union(A, C))
+only_C <- setdiff(C, union(A, B))
+
+AandB_only <- setdiff(intersect(A, B), C)
+AandC_only <- setdiff(intersect(A, C), B)
+BandC_only <- setdiff(intersect(B, C), A)
+
+AandBandC <- Reduce(intersect, list(A, B, C))
+
+```
+
+```{r}
+cat("Regiones (conteos):\n")
+tibble::tibble(
+  region = c("only_hifi_trio","only_hifi_nonorm","only_trio_nonorm",
+             "hifi_trio & hifi_nonorm only", "hifi_trio & trio_nonorm only", "hifi_nonorm & trio_nonorm only",
+             "triple"),
+  count = c(length(only_A), length(only_B), length(only_C),
+            length(AandB_only), length(AandC_only), length(BandC_only),
+            length(AandBandC))
+) %>% print()
+
+```
+
+```{r}
+names(venn_sets) <- c(
+  "Hifiasm Trio",
+  "RFHap",
+  "TrioBinning"
+)
+```
+
+```{r}
+comparison=ggvenn(
+  venn_sets,
+  c("Hifiasm Trio", "RFHap", "TrioBinning"),
+  show_elements = FALSE,
+  stroke_size = 0.3,
+  set_name_size = 20,
+  text_size = 15
+) + ggplot2::ggtitle("Reads classification intersection between methods") +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(size = 60)
+  )
+
+```
+
+##Importance
+```{r}
+rf_model=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/train/HG002_standar_ont_sup_PAW70337.fastq_fastkm_matrix_rf_model.rds")
+
+```
+
+```{r}
+
+varimplot=varImpPlot(rf_model,main="Importance of features")
+varimplot=as.data.frame(varimplot)
+varimplot$feature=row.names(varimplot)
+```
+
+```{r}
+plot_importance=varimplot %>% mutate(feature = fct_reorder(feature, MeanDecreaseGini)) %>% ggplot(aes(x = MeanDecreaseGini, y = feature)) +
+  geom_point(size = 3, alpha = 0.6) +  # Adjust size and transparency
+  geom_jitter(width = 0.2, height = 0) +  # Add jitter for better visibility
+  theme_minimal() +  # Use a minimal theme
+  labs(title = "Feature Importance", x = "MeanDecreaseGini", y = "Feature") +
+  theme(text=element_text(size=35),axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5,size = 60)) 
+
+png("importance.png", width = 2000 , height = 2000)
+plot_importance
+dev.off()
+
+plot_importance
+
+```
+###Prediction
+```{r}
+library(data.table)
+prob = read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/prediction/HG002_standar_ont_sup_PAW71238.fastq_fastkm_matrix.9_rf_prediction.txt", sep =" ", header =TRUE)
+```
+
+```{r}
+prob_plot=ggplot(prob, aes(x = Predicted.prob.A, y = Predicted.prob.B, color = Predicted.Class)) +
+  geom_point(size = 3) +
+  labs(
+    title = "",
+    x = "A",
+    y = "B",
+    color = "Clase Predicha"
+  ) + 
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1), expand = c(0, 0)) + 
+  theme_minimal()  + theme(legend.position = "none", text=element_text(size=50)) + ggtitle("Probability distribution for RandomForest Classification")
+
+prob_plot
+```
+
+```{r}
+library(patchwork)
+png("super_figure.png", width = 5200 , height = 2500)
+(plot_importance| comparison| prob_plot) 
+dev.off()
+```
+

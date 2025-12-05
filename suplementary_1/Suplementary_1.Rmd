@@ -1,0 +1,211 @@
+---
+title: "Suplementary_1"
+output: html_document
+date: "2025-12-05"
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(pheatmap)
+library(stringr)
+library(scales)
+```
+
+###Seqkit stats
+```{r cars}
+long_stats = read.delim("long_read_stats.tsv", sep = "\t" , header = TRUE)
+long_stats
+```
+
+
+```{r pressure, echo=FALSE}
+long_stats = long_stats %>% mutate(
+  num_seqs = as.numeric(gsub("," , "", num_seqs)),
+  sum_len = as.numeric(gsub("," , "", sum_len)),
+)
+
+head(long_stats)
+```
+
+```{r}
+df2 <- long_stats %>%
+  mutate(
+    Sample  = str_extract(file, "PAW\\d+"),
+    DATASET = str_extract(file, "HG\\d{3}")
+  ) %>%
+  select(-file)
+head(df2)
+```
+```{r}
+new_stats = read.delim("new_datasets_stats_for_R.tsv", sep = "\t", header= TRUE)
+new_stats
+```
+
+
+```{r}
+new_stats$file <- as.character(new_stats$file)
+
+new_stats$num_seqs <- as.numeric(gsub(",", "", new_stats$num_seqs))
+new_stats$sum_len  <- as.numeric(gsub(",", "", new_stats$sum_len))
+
+```
+
+```{r}
+new_stats$short_file <- new_stats$file %>%
+  basename() %>%
+  str_replace("_R941.*", "")
+
+new_stats$file=new_stats$short_file
+new_stats$short_file= NULL
+new_stats
+```
+
+```{r}
+df2_clean <- df2
+
+names(df2_clean)[names(df2_clean) == "Sample"]  <- "file"
+names(df2_clean)[names(df2_clean) == "DATASET"] <- "Dataset"
+
+df2_clean <- df2_clean[, c("file", "num_seqs", "sum_len", "Dataset")]
+
+df2_clean
+```
+```{r}
+final_df_stats <- rbind(new_stats, df2_clean)
+```
+
+```{r}
+p1 <- ggplot(final_df_stats, aes(x = file, y = num_seqs)) +
+  geom_col(fill = "#4fa3df") +
+  facet_wrap(~Dataset, scales = "free_x") +
+  theme_bw() +
+  scale_y_continuous(labels = comma) +   # no notación científica
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Number of sequences per sample",
+    x = "Sample",
+    y = "num_seqs"
+  )
+
+p2 <- ggplot(final_df_stats, aes(x = file, y = sum_len)) +
+  geom_col(fill = "#1f78b4") +
+  facet_wrap(~Dataset, scales = "free_x") +
+  theme_bw() +
+  scale_y_continuous(labels = comma) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "SumLen per Sample",
+    x = "Sample",
+    y = "sum_len"
+  )
+```
+
+
+####Coverage
+```{r}
+coverage = read.delim("coverage_all.txt", header= TRUE , sep = "\t")
+coverage
+```
+
+```{r}
+library(RColorBrewer)
+
+plot_coverage=ggplot(coverage, aes(x = file, y = coverage, fill = Dataset)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Dataset, scales = "free_x") +
+  scale_fill_manual(values = brewer.pal(9, "Blues")[4:9]) +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), legend.position= "none"
+  ) +
+  labs(
+    title = "Coverage per sample",
+    x = "Sample",
+    y = "Coverage (X)"
+  )
+```
+
+
+####NGSCheck
+```{r}
+corr_matrix= read.delim("output_all.txt", sep = "\t", col.names = c("Sample1","matched/unmatched","Sample2","Correlation", "Depth"))
+```
+
+```{r}
+corr_matrix$Sample1 <- as.character(corr_matrix$Sample1)
+corr_matrix$Sample2 <- as.character(corr_matrix$Sample2)
+
+corr_matrix$Sample1 <- trimws(corr_matrix$Sample1)
+corr_matrix$Sample2 <- trimws(corr_matrix$Sample2)
+
+
+samples <- sort(unique(c(corr_matrix$Sample1, corr_matrix$Sample2)))
+n <- length(samples)
+
+mat <- matrix(NA_real_, nrow = n, ncol = n,
+              dimnames = list(samples, samples))
+
+for(i in seq_len(nrow(corr_matrix))) {
+  s1 <- corr_matrix$Sample1[i]
+  s2 <- corr_matrix$Sample2[i]
+  cval <- as.numeric(corr_matrix$Correlation[i])
+  if(is.na(cval)) next
+  # si ya hay un valor distinto a NA, promediar
+  prev <- mat[s1, s2]
+  if(!is.na(prev) && !is.na(cval) && prev != cval) {
+    mat[s1, s2] <- mean(c(prev, cval), na.rm = TRUE)
+    mat[s2, s1] <- mat[s1, s2]
+  } else {
+    mat[s1, s2] <- cval
+    mat[s2, s1] <- cval
+  }
+}
+
+diag(mat) <- 1
+
+min_corr <- min(as.numeric(corr_matrix$Correlation), na.rm = TRUE)
+if(!is.finite(min_corr)) min_corr <- 0
+mat[is.na(mat)] <- min_corr
+
+dist_mat <- 1 - mat
+diag(dist_mat) <- 0
+hc <- hclust(as.dist(dist_mat), method = "average")
+
+ord <- hc$order
+mat_ord <- mat[ord, ord]
+samples_ord <- rownames(mat_ord)
+
+paleta_azul <- colorRampPalette(
+  c("#e0f7fa", "#81d4fa", "#29b6f6", "#0288d1", "#01579b")
+)(100)
+
+ngscheck=pheatmap(
+  mat_ord,
+  color = paleta_azul,
+  cluster_rows = FALSE,
+  cluster_cols = FALSE,
+  show_rownames = TRUE,
+  show_colnames = TRUE,
+  display_numbers = FALSE,        # cambiar a FALSE si resulta muy apretado
+  number_format = "%.3f",
+  fontsize_number = 8,
+  fontsize = 9,
+  border_color = NA,
+  main = "Correlation between samples"
+)
+```
+
+```{r}
+library(ggplotify)
+ggngs_check = as.ggplot(ngscheck)
+```
+
+```{r}
+library(patchwork)
+png("stats_for_paper.png", res = 200, width = 2300 , height = 2800)
+(p1 | p2 ) / (plot_coverage | ggngs_check) 
+
+dev.off()
+```

@@ -1,0 +1,141 @@
+---
+title: "more_coverage_statistic_v2.Rmd"
+output: html_document
+date: "2025-08-26"
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(patchwork)
+library(scales)
+```
+
+```{r cars}
+hg00_wg=read.delim("new_stats_v2.tsv", sep ="\t", header=TRUE)
+
+```
+
+```{r}
+hg00_wg = hg00_wg %>% mutate(
+  N50merqury = as.numeric(gsub("\\,","",N50merqury)),
+  Assembly=trimws(Assembly),
+  N50gfastats=as.numeric(N50gfastats),
+  AvgBlockSize = as.numeric(gsub(",","",AvgBlockSize))
+) %>%
+  mutate(
+    SwitchErrorMerqury=as.numeric(gsub("%","",SwitchErrorMerqury))
+  )
+```
+
+
+
+```{r}
+a = ggplot(hg00_wg, aes(x = Assembly, y = N50merqury, fill = Method)) +
+  geom_bar(stat = "identity", position = "dodge") +
+ # geom_text(aes(label = format(N50merqury, big.mark = ",")),
+  #          position = position_dodge(width = 0.9),
+   #         vjust = -0.3, size = 3) +          # ← valores sobre las barras
+  facet_wrap(~Dataset) +
+  labs(
+    title = "Merqury N50 corrected",
+    x = "Assembly",
+    y = "Merqury N50 corrected",
+    fill = "Method"
+  ) +
+  scale_y_continuous(labels = label_comma()) +  # ← sin notación científica
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    title = element_text(size = 10)
+  )
+a
+```
+
+
+```{r}
+c=ggplot(hg00_wg, aes(x = Assembly, y = N50gfastats, fill = Method)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  #geom_text(aes(label = format(N50gfastats, big.mark = ",")),
+   #         position = position_dodge(width = 0.9),
+    #        vjust = -0.3, size = 3) +          # ← valores sobre las barras
+  facet_wrap(~Dataset) +
+  labs(
+    title = "N50 GfaStats",
+    x = "Assembly",
+    y = "N50 GfaStats",
+    fill = "Method"
+  ) +
+  scale_y_continuous(labels = label_comma()) +  # ← sin notación científica
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    title = element_text(size = 10),
+  legend.position = "none")
+c
+```
+
+####Errors
+
+```{r}
+e=ggplot(hg00_wg, aes(x = Assembly, y = SwitchErrorMerqury, fill = Method)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(SwitchErrorMerqury, 2)),
+            position = position_dodge(width = 0.9),
+            vjust = -0.3,        # etiqueta encima de la barra
+            color = "black",
+            size = 2.5) +
+  facet_wrap(~Dataset) +
+  labs(
+    title = "Merqury Switch Error",
+    x = "Assembly",
+    y = "Merqury Switch Error",
+    fill = "Method"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), title = element_text(size = 10), legend.position = "none"
+  )
+
+e
+```
+
+```{r}
+
+library(tidyr)
+df_long <- hg00_wg %>% 
+  pivot_longer(
+    cols = c(N50gfastats, N50merqury),
+    names_to = "Metric",
+    values_to = "N50"
+  )
+
+scatter = ggplot(df_long, aes(x = Metric, y = N50, color = Method,
+                    group = interaction(Method, Assembly))) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  facet_grid(Assembly ~ Dataset, scales = "free_y") +
+  theme_bw(base_size = 14) +
+  scale_x_discrete(labels = c(
+    "N50gfastats" = "gfastats",
+    "N50merqury" = "merqury"
+  )) +
+  labs(
+    title = "N50 comparison: gfastats vs merqury",
+    x = "",
+    y = "N50"
+  ) + theme(legend.position = "none")
+
+
+```
+
+```{r}
+library(patchwork)
+
+png("new_metrics.png", width =3000, height = 2300, res=200)
+(c | a) / (e|scatter)
+dev.off()
+```
+
