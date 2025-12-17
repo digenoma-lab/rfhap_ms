@@ -38,6 +38,8 @@ df2 <- long_stats %>%
   select(-file)
 head(df2)
 ```
+
+
 ```{r}
 new_stats = read.delim("new_datasets_stats_for_R.tsv", sep = "\t", header= TRUE)
 new_stats
@@ -72,36 +74,49 @@ df2_clean <- df2_clean[, c("file", "num_seqs", "sum_len", "Dataset")]
 
 df2_clean
 ```
+
+
 ```{r}
 final_df_stats <- rbind(new_stats, df2_clean)
 ```
 
+
 ```{r}
-p1 <- ggplot(final_df_stats, aes(x = file, y = num_seqs)) +
-  geom_col(fill = "#4fa3df") +
-  facet_wrap(~Dataset, scales = "free_x") +
+p1 <- ggplot(final_df_stats, aes(x = file, y = num_seqs, fill = Dataset)) +
+  geom_col() +
+  facet_wrap(~Dataset, scales = "free") +
   theme_bw() +
-  scale_y_continuous(labels = comma) +   # no notación científica
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(
+    labels = label_number(scale = 1e-6, suffix = "M", accuracy = 1)
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
   labs(
     title = "Number of sequences per sample",
     x = "Sample",
-    y = "num_seqs"
+    y = "Number of sequences (M)",
+    fill = "Dataset"
   )
 
-p2 <- ggplot(final_df_stats, aes(x = file, y = sum_len)) +
-  geom_col(fill = "#1f78b4") +
-  facet_wrap(~Dataset, scales = "free_x") +
+p2 <- ggplot(final_df_stats, aes(x = file, y = sum_len, fill = Dataset)) +
+  geom_col() +
+  facet_wrap(~Dataset, scales = "free") +
   theme_bw() +
-  scale_y_continuous(labels = comma) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(
+    labels = label_number(scale = 1e-6, suffix = "M", accuracy = 1)
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position= "none") +
   labs(
     title = "SumLen per Sample",
     x = "Sample",
-    y = "sum_len"
+    y = "Sum length (M)",
+    fill = "Dataset"
   )
-```
 
+p1
+p2
+```
 
 ####Coverage
 ```{r}
@@ -114,9 +129,9 @@ library(RColorBrewer)
 
 plot_coverage=ggplot(coverage, aes(x = file, y = coverage, fill = Dataset)) +
   geom_bar(stat = "identity") +
-  facet_wrap(~ Dataset, scales = "free_x") +
-  scale_fill_manual(values = brewer.pal(9, "Blues")[4:9]) +
-  theme_bw(base_size = 14) +
+  facet_wrap(~ Dataset, scales = "free") +
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1), legend.position= "none"
   ) +
@@ -197,6 +212,7 @@ ngscheck=pheatmap(
 )
 ```
 
+
 ```{r}
 library(ggplotify)
 ggngs_check = as.ggplot(ngscheck)
@@ -205,7 +221,11 @@ ggngs_check = as.ggplot(ngscheck)
 ```{r}
 library(patchwork)
 png("stats_for_paper.png", res = 200, width = 2300 , height = 2800)
-(p1 | p2 ) / (plot_coverage | ggngs_check) 
+(p1 | p2 ) / (plot_coverage | ggngs_check) +
+  plot_annotation(tag_levels = "A")
 
 dev.off()
 ```
+
+
+
