@@ -14,110 +14,140 @@ library(patchwork)
 library(ggvenn)
 library(randomForest)
 library(forcats)
+library(RColorBrewer)
 
 ```
 
 ####Venn
 ```{r}
-merged_all = readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/classification_comparison/random_forest/train-v03/all_comparison.rds")
+merged_all = readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/classification_comparison/random_forest/train-v03/intersection_methods.rds")
 ```
 
 ```{r cars}
-comparison_hg002 = merged_all %>% filter(dataset == "HG002") %>% select(-norm_trainv03)
-head(comparison_hg002)
-saveRDS(comparison_hg002, "hg002_classif_comparison.rds")
+df = merged_all
+df
 ```
-
-
-
-```{r pressure, echo=FALSE}
-df <- comparison_hg002
-```
-
+##Venn test
 ```{r}
-n_total <- nrow(df)
+library(ggplot2)
+library(ggforce)
 
-matches_all <- df %>% filter(hifiasm == trio_binning & hifiasm == no_norm_trainv03)
-n_all <- nrow(matches_all); pct_all <- round(n_all / n_total * 100, 2)
+# vectores de etiquetas (ya en tu entorno)
+A <- as.character(df$trio_binning)
+B <- as.character(df$hifiasm)
+C <- as.character(df$rfhap)
 
-matches_hifi_trio <- df %>% filter(hifiasm == trio_binning)
-n_hifi_trio <- nrow(matches_hifi_trio); pct_hifi_trio <- round(n_hifi_trio / n_total * 100, 2)
+n <- length(A)
 
-matches_hifi_nonorm <- df %>% filter(hifiasm == no_norm_trainv03)
-n_hifi_nonorm <- nrow(matches_hifi_nonorm); pct_hifi_nonorm <- round(n_hifi_nonorm / n_total * 100, 2)
+# regiones mutuamente excluyentes CORRECTAS
+ABC      <- sum(A == B & B == C)                          # los tres iguales
+AB_only  <- sum(A == B & A != C)                          # A y B iguales, C distinto
+AC_only  <- sum(A == C & A != B)                          # A y C iguales, B distinto
+BC_only  <- sum(B == C & B != A)                          # B y C iguales, A distinto
+all_diff <- sum(A != B & A != C & B != C)                 # las tres diferentes
 
-matches_trio_nonorm <- df %>% filter(trio_binning == no_norm_trainv03)
-n_trio_nonorm <- nrow(matches_trio_nonorm); pct_trio_nonorm <- round(n_trio_nonorm / n_total * 100, 2)
+# sanity check
+sum_regions <- ABC + AB_only + AC_only + BC_only + all_diff
+stopifnot(sum_regions == n)   # esto debe pasar
 
-resumen <- tibble::tibble(
-  comparison = c("3-way (all equal)", "hifiasm == trio_binning", "hifiasm == no_norm", "trio_binning == no_norm"),
-  count = c(n_all, n_hifi_trio, n_hifi_nonorm, n_trio_nonorm),
-  pct = c(pct_all, pct_hifi_trio, pct_hifi_nonorm, pct_trio_nonorm)
+res <- data.frame(
+  categoria = c("los_tres_coinciden", "trio_binning_hifiasm", "trio_binning_no_norm_trainv03",
+                "hifiasm_no_norm_trainv03", "ninguna_coincide"),
+  count = c(ABC, AB_only, AC_only, BC_only, all_diff),
+  stringsAsFactors = FALSE
 )
-print(resumen)
+res$percent <- 100 * res$count / n
+res$percent <- round(res$percent, 2)
+
+print(res)
+cat("Suma porcentajes:", sum(res$percent), "\n")  # ~100 (puede haber redondeo)
+
+# Para graficar (ejemplo esquemático con ggforce):
+# posiciones de etiquetas - ajusta si hace falta
 ```
 
 ```{r}
-venn_sets <- list(
-  hifi_trio    = matches_hifi_trio$read_id,
-  hifi_nonorm  = matches_hifi_nonorm$read_id,
-  trio_nonorm  = matches_trio_nonorm$read_id
+
+labels_pos <- data.frame(
+  categoria = c(
+    "trio_binning_hifiasm",         # AB_only
+    "trio_binning_no_norm_trainv03",# AC_only
+    "hifiasm_no_norm_trainv03",     # BC_only
+    "los_tres_coinciden",           # ABC
+    "ninguna_coincide"              # all_diff
+  ),
+  x = c(
+    0.60,   # AB_only
+    0.10,   # AC_only (más al centro y arriba)
+    1.2,   # BC_only (más al centro y arriba)
+    0.60,   # ABC
+    1.90    # all_diff
+  ),
+  y = c(
+    -0.25,  # AB_only
+    0.85,   # AC_only → centrado mejor
+    0.85,   # BC_only → centrado mejor
+    0.40,   # ABC
+    1.60    # all_diff
+  ),
+  stringsAsFactors = FALSE
 )
 
-# Mostrar conteos en la consola (regiones del Venn)
-A <- venn_sets$hifi_trio
-B <- venn_sets$hifi_nonorm
-C <- venn_sets$trio_nonorm
-```
+label_df <- merge(labels_pos, res, by = "categoria", all.x = TRUE)
+label_df$label <- paste0(label_df$count, "\n", label_df$percent, "%")
 
-```{r}
-only_A <- setdiff(A, union(B, C))
-only_B <- setdiff(B, union(A, C))
-only_C <- setdiff(C, union(A, B))
-
-AandB_only <- setdiff(intersect(A, B), C)
-AandC_only <- setdiff(intersect(A, C), B)
-BandC_only <- setdiff(intersect(B, C), A)
-
-AandBandC <- Reduce(intersect, list(A, B, C))
-
-```
-
-```{r}
-cat("Regiones (conteos):\n")
-tibble::tibble(
-  region = c("only_hifi_trio","only_hifi_nonorm","only_trio_nonorm",
-             "hifi_trio & hifi_nonorm only", "hifi_trio & trio_nonorm only", "hifi_nonorm & trio_nonorm only",
-             "triple"),
-  count = c(length(only_A), length(only_B), length(only_C),
-            length(AandB_only), length(AandC_only), length(BandC_only),
-            length(AandBandC))
-) %>% print()
-
-```
-
-```{r}
-names(venn_sets) <- c(
-  "Hifiasm Trio",
-  "RFHap",
-  "TrioBinning"
+# -------------------------------------------------------------
+# CÍRCULOS
+# -------------------------------------------------------------
+circles <- data.frame(
+  name = c("trio_binning", "hifiasm", "rfhap"),
+  x0 = c(0.0, 1.2, 0.6),
+  y0 = c(0.0, 0.0, 1.05),
+  r  = c(1.05, 1.05, 1.05)
 )
+
+# -------------------------------------------------------------
+# TÍTULOS DE LOS CÍRCULOS (rfhap arriba)
+# -------------------------------------------------------------
+circle_labels <- transform(
+  circles,
+  lab_x = x0,
+  lab_y = ifelse(name == "rfhap", y0 + r + 0.15, y0 - r - 0.15)
+)
+
+# -------------------------------------------------------------
+# GRÁFICO FINAL
+# -------------------------------------------------------------
+p <- ggplot() +
+  geom_circle(data = circles,
+              aes(x0 = x0, y0 = y0, r = r, fill = name),
+              color = "black", alpha = 0.35, size = 0.4) +
+
+  # etiquetas de intersecciones
+  geom_text(data = label_df,
+            aes(x = x, y = y, label = label),
+            size = 10, lineheight = 0.9) +
+
+  # títulos de los círculos
+  geom_text(data = circle_labels,
+            aes(x = lab_x, y = lab_y, label = name),
+            size = 15, fontface = "bold") +
+
+  coord_fixed(xlim = c(-1.2, 2.3), ylim = c(-1.2, 2.2)) +
+  theme_void() +
+  theme(legend.position = "none", title = element_text(size = 35)) +
+  theme(text=element_text(size=35), plot.title = element_text(hjust = 0.5,size = 30))+
+  labs(title = "Intersection of classification between methods") +
+  scale_fill_brewer(palette = "Set2")
+ # scale_fill_manual(values = c(
+  #  "trio_binning" = "#F8766D",
+   # "hifiasm"      = "#00BA38",
+    #"rfhap"        = "#619CFF"
+  #))
+
+print(p)
 ```
 
-```{r}
-comparison=ggvenn(
-  venn_sets,
-  c("Hifiasm Trio", "RFHap", "TrioBinning"),
-  show_elements = FALSE,
-  stroke_size = 0.3,
-  set_name_size = 20,
-  text_size = 15
-) + ggplot2::ggtitle("Reads classification intersection between methods") +
-  ggplot2::theme(
-    plot.title = ggplot2::element_text(size = 60)
-  )
-
-```
 
 ##Importance
 ```{r}
@@ -133,20 +163,43 @@ varimplot$feature=row.names(varimplot)
 ```
 
 ```{r}
-plot_importance=varimplot %>% mutate(feature = fct_reorder(feature, MeanDecreaseGini)) %>% ggplot(aes(x = MeanDecreaseGini, y = feature)) +
-  geom_point(size = 3, alpha = 0.6) +  # Adjust size and transparency
-  geom_jitter(width = 0.2, height = 0) +  # Add jitter for better visibility
-  theme_minimal() +  # Use a minimal theme
-  labs(title = "Feature Importance", x = "MeanDecreaseGini", y = "Feature") +
-  theme(text=element_text(size=35),axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5,size = 60)) 
 
-png("importance.png", width = 2000 , height = 2000)
+set2_col <- brewer.pal(3, "Set2")[1]
+
+plot_importance <- varimplot %>%
+  filter(MeanDecreaseGini > 500) %>%
+  mutate(feature = fct_reorder(feature, MeanDecreaseGini)) %>%
+  ggplot(aes(
+    x = MeanDecreaseGini,
+    y = feature,
+    size = MeanDecreaseGini        # 👈 tamaño mapeado
+  )) +
+  geom_point(
+    color = set2_col,
+    alpha = 0.6
+  ) +
+  scale_size_continuous(
+    range = c(3, 10),              # 👈 controla crecimiento
+    guide = "none"                 # 👈 sin leyenda de tamaño (metodológico)
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Feature Importance",
+    x = "MeanDecreaseGini",
+    y = "Feature"
+  ) +
+  theme(
+    text = element_text(size = 35),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5, size = 30)
+  )
+
+png("importance.png", width = 1000 , height = 800)
 plot_importance
 dev.off()
-
 plot_importance
-
 ```
+
 ###Prediction
 ```{r}
 library(data.table)
@@ -160,19 +213,29 @@ prob_plot=ggplot(prob, aes(x = Predicted.prob.A, y = Predicted.prob.B, color = P
     title = "",
     x = "A",
     y = "B",
-    color = "Clase Predicha"
+    color = "Predicted Class"
   ) + 
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1), expand = c(0, 0)) +
   scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1), expand = c(0, 0)) + 
-  theme_minimal()  + theme(legend.position = "none", text=element_text(size=50)) + ggtitle("Probability distribution for RandomForest Classification")
+  theme_minimal()  + theme(text=element_text(size=35),axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5,size = 30), legend.position = "bottom") + ggtitle("Probability distribution for RandomForest Classification") + scale_color_brewer(palette = "Set2")
 
 prob_plot
 ```
 
 ```{r}
 library(patchwork)
-png("super_figure.png", width = 5200 , height = 2500)
-(plot_importance| comparison| prob_plot) 
+png("super_figure.png", width = 4000 , height = 2000, res= 100)
+(plot_importance| p| prob_plot) +
+  plot_annotation(tag_levels = "A", theme = theme(
+      plot.title = element_text(
+        size = 28,
+        face = "bold"
+      )
+    ))
 dev.off()
 ```
+
+
+
+
 
