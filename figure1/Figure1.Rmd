@@ -107,12 +107,19 @@ circles <- data.frame(
 )
 
 # -------------------------------------------------------------
-# TÍTULOS DE LOS CÍRCULOS (rfhap arriba)
+# TÍTULOS DE LOS CÍRCULOS 
 # -------------------------------------------------------------
 circle_labels <- transform(
   circles,
   lab_x = x0,
   lab_y = ifelse(name == "rfhap", y0 + r + 0.15, y0 - r - 0.15)
+)
+
+
+palette_paper <- c(
+  "trio_binning" = "#66C2A5",  # azul medio
+  "hifiasm"      = "steelblue2",  # azul claro–medio
+  "rfhap"        = "lightsalmon"   # naranjo medio
 )
 
 # -------------------------------------------------------------
@@ -126,19 +133,17 @@ p <- ggplot() +
   # etiquetas de intersecciones
   geom_text(data = label_df,
             aes(x = x, y = y, label = label),
-            size = 10, lineheight = 0.9) +
+            size = 7, lineheight = 0.9) +
 
   # títulos de los círculos
   geom_text(data = circle_labels,
             aes(x = lab_x, y = lab_y, label = name),
-            size = 15, fontface = "bold") +
+            size = 9) +
 
   coord_fixed(xlim = c(-1.2, 2.3), ylim = c(-1.2, 2.2)) +
   theme_void() +
-  theme(legend.position = "none", title = element_text(size = 35)) +
-  theme(text=element_text(size=35), plot.title = element_text(hjust = 0.5,size = 30))+
-  labs(title = "Intersection of classification between methods") +
-  scale_fill_brewer(palette = "Set2")
+  theme(text=element_text(size=27), plot.title = element_text(hjust = 0.5,size = 30, face = "bold"), legend.position = "none")+
+  scale_fill_manual(values = palette_paper)
  # scale_fill_manual(values = c(
   #  "trio_binning" = "#F8766D",
    # "hifiasm"      = "#00BA38",
@@ -164,7 +169,7 @@ varimplot$feature=row.names(varimplot)
 
 ```{r}
 
-set2_col <- brewer.pal(3, "Set2")[1]
+set2_col <- "steelblue"
 
 plot_importance <- varimplot %>%
   filter(MeanDecreaseGini > 500) %>%
@@ -172,26 +177,27 @@ plot_importance <- varimplot %>%
   ggplot(aes(
     x = MeanDecreaseGini,
     y = feature,
-    size = MeanDecreaseGini        # 👈 tamaño mapeado
+    size = MeanDecreaseGini        
   )) +
-  geom_point(
-    color = set2_col,
-    alpha = 0.6
+    geom_point(
+    shape  = 21,              
+    fill   = "steelblue",     
+    color  = "steelblue4",    
+    stroke = 1.2,            
+    alpha  = 0.6
   ) +
   scale_size_continuous(
-    range = c(3, 10),              # 👈 controla crecimiento
-    guide = "none"                 # 👈 sin leyenda de tamaño (metodológico)
+    range = c(3, 10),              
+    guide = "none"                 
   ) +
   theme_minimal() +
   labs(
-    title = "Feature Importance",
     x = "MeanDecreaseGini",
     y = "Feature"
   ) +
   theme(
-    text = element_text(size = 35),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(hjust = 0.5, size = 30)
+    text = element_text(size = 27),
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), axis.text.y = element_text(color = "black")
   )
 
 png("importance.png", width = 1000 , height = 800)
@@ -207,31 +213,77 @@ prob = read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/H
 ```
 
 ```{r}
-prob_plot=ggplot(prob, aes(x = Predicted.prob.A, y = Predicted.prob.B, color = Predicted.Class)) +
-  geom_point(size = 3) +
+fill_colors <- c(
+  "A" = alpha("#66C2A5", 0.25),    
+  "B" = alpha("steelblue2", 0.25),
+  "U" = alpha("lightsalmon", 0.25)
+)
+
+border_colors <- c(
+  "A" = "#66C2A5",     # verde más oscuro
+  "B" = "steelblue", # azul más oscuro
+  "U" = "lightsalmon"     # naranjo más oscuro
+)
+```
+
+```{r}
+prob_plot <- ggplot(
+  prob,
+  aes(
+    x = Predicted.prob.A,
+    y = Predicted.prob.B,
+    fill  = Predicted.Class,  
+    color = Predicted.Class
+  )
+) +
+  geom_point(
+    shape  = 21,
+    size   = 3,
+    stroke = 0.6               
+  ) +
   labs(
-    title = "",
     x = "A",
     y = "B",
+    fill  = "Predicted Class",
     color = "Predicted Class"
   ) + 
-  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1), expand = c(0, 0)) +
-  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1), expand = c(0, 0)) + 
-  theme_minimal()  + theme(text=element_text(size=35),axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5,size = 30), legend.position = "bottom") + ggtitle("Probability distribution for RandomForest Classification") + scale_color_brewer(palette = "Set2")
+  scale_fill_manual(values = fill_colors) +
+  scale_color_manual(values = border_colors) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, by = 0.1),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, by = 0.1),
+    expand = c(0, 0)
+  ) +
+  theme_minimal() +
+    theme(
+    text = element_text(size = 27),
+    axis.text.x = element_text(angle = 30, hjust = 1, color = "black"), axis.text.y = element_text(color = "black"),
+    legend.position = "bottom"
+  )
+
 
 prob_plot
+
 ```
 
 ```{r}
 library(patchwork)
-png("super_figure.png", width = 4000 , height = 2000, res= 100)
-(plot_importance| p| prob_plot) +
-  plot_annotation(tag_levels = "A", theme = theme(
-      plot.title = element_text(
-        size = 28,
-        face = "bold"
+png("super_figure.png", width = 3000, height = 1700 , res = 130)
+(plot_importance | p | prob_plot) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(
+        size = 32,
+        face = "bold"   
       )
-    ))
+    )
+  )
 dev.off()
 ```
 

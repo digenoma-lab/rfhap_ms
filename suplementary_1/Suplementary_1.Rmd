@@ -82,11 +82,18 @@ final_df_stats <- rbind(new_stats, df2_clean)
 
 
 ```{r}
+
+cols <- c(
+  "HG002" = "#1F4E79",  # azul petróleo (principal)
+  "HG005" = "#4F81BD",  # azul más claro
+  "HG01109" = "#F2A07B",  # naranjo damasco claro
+  "HG01243" = "#D96B43"   # naranjo terracota
+)
 p1 <- ggplot(final_df_stats, aes(x = file, y = num_seqs, fill = Dataset)) +
   geom_col() +
   facet_wrap(~Dataset, scales = "free") +
   theme_bw() +
-  scale_fill_brewer(palette = "Set2") +
+  scale_fill_manual(values = cols) +
   scale_y_continuous(
     labels = label_number(scale = 1e-6, suffix = "M", accuracy = 1)
   ) +
@@ -102,7 +109,7 @@ p2 <- ggplot(final_df_stats, aes(x = file, y = sum_len, fill = Dataset)) +
   geom_col() +
   facet_wrap(~Dataset, scales = "free") +
   theme_bw() +
-  scale_fill_brewer(palette = "Set2") +
+  scale_fill_manual(values = cols) +
   scale_y_continuous(
     labels = label_number(scale = 1e-6, suffix = "M", accuracy = 1)
   ) +
@@ -130,7 +137,7 @@ library(RColorBrewer)
 plot_coverage=ggplot(coverage, aes(x = file, y = coverage, fill = Dataset)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ Dataset, scales = "free") +
-  scale_fill_brewer(palette = "Set2") +
+  scale_fill_manual(values = cols) +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1), legend.position= "none"
@@ -140,6 +147,8 @@ plot_coverage=ggplot(coverage, aes(x = file, y = coverage, fill = Dataset)) +
     x = "Sample",
     y = "Coverage (X)"
   )
+
+plot_coverage
 ```
 
 
@@ -192,9 +201,7 @@ ord <- hc$order
 mat_ord <- mat[ord, ord]
 samples_ord <- rownames(mat_ord)
 
-paleta_azul <- colorRampPalette(
-  c("#e0f7fa", "#81d4fa", "#29b6f6", "#0288d1", "#01579b")
-)(100)
+paleta_azul <- colorRampPalette( c("#e0f7fa", "#81d4fa", "#29b6f6", "#0288d1", "#01579b"))(100)
 
 ngscheck=pheatmap(
   mat_ord,
