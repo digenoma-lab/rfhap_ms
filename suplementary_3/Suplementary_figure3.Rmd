@@ -1,0 +1,72 @@
+---
+title: "plot.Rmd"
+output: html_document
+date: "2025-12-22"
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+
+```{r cars}
+RM = read.delim("all_repeat_intersections.tsv", sep = "\t", header =TRUE, col.names = c("chrom","start","end","repeat_name","score", "strand","repeat_class","repeat_family","divergence",	"rm_id", "count","dataset",	"method"
+))
+head(RM)
+```
+
+```{r}
+sum_repeats <- RM %>%
+  mutate(repeat_group = repeat_class) %>%
+  group_by(dataset, method, repeat_group) %>%
+  summarise(total_count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+  select(repeat_group, total_count, dataset, method) %>%
+  filter(total_count > 20) %>% filter(repeat_group!= "Unknown")
+sum_repeats
+```
+
+```{r}
+SD= read.delim("all_sd_intersections.tsv", sep ="\t", header= TRUE)
+head(SD)
+```
+
+```{r}
+sum_sd <- SD %>%
+  group_by(dataset, method) %>%
+  summarise(total_count = sum(count, na.rm = TRUE), .groups = "drop") 
+sum_sd$repeat_group = "SD"
+
+sum_sd = sum_sd %>% select(repeat_group , total_count, dataset , method)
+sum_sd
+```
+```{r}
+final = rbind(sum_repeats, sum_sd)
+```
+
+
+
+```{r}
+p =ggplot(final, aes(x=total_count, y = repeat_group, fill = repeat_group)) +
+  geom_col() +
+  facet_grid(
+    rows = vars(method),
+    cols = vars(dataset)
+  ) +
+  labs(
+    x="Number of error regions overlapping repeats",
+    y="Repeat group" 
+  ) +
+  theme_bw() 
+  
+```
+
+```{r}
+png("errors_intersection.png", width = 2500, height = 1200, res = 200)
+p
+dev.off()
+
+```
+
+

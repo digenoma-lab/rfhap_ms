@@ -1,0 +1,350 @@
+---
+title: "NGS check chilean GBC"
+author: "Noemí Gómez"
+date: "2025-05-19"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Open NGSCheckmate results
+```{r work directory, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(RColorBrewer)
+setwd("/mnt/beegfs/labs/DiGenomaLab/CANCER/CRC/processing/NGSCheck/ngs_results")
+#dir.create("plot")
+```
+
+```{r data_load}
+ngs_results <- read.table("NGSCheckMate.results_all.txt", 
+                          header = F, sep = "\t", check.names = F,
+                          col.names = c("sample1","match","sample2",
+                                        "correlation","depth"))
+str(ngs_results)
+tumor_match <- read.table("tumor.match.tsv", header = T, sep = "\t",
+                          check.names = F, col.names = c("ID_BUTCH","DNA_GERM","miRNA",
+                                                         "DNA_TUM_1", "DNA_TUM_2"))
+str(tumor_match)
+```
+
+```{r filtering}
+ngs_match <- ngs_results %>%
+  dplyr::filter(match == "matched")
+```
+
+# Similarity evaluation
+```{r, fig.width=21, fig.height=6}
+library(tidyr)
+library(dendextend)
+
+samples <- unique(c(ngs_results$sample1, ngs_results$sample2))
+
+tumor_long <- tumor_match %>%
+  pivot_longer(
+    cols = c(DNA_GERM, DNA_TUM_1, DNA_TUM_2, miRNA),
+    names_to = "tipo",
+    values_to = "sample"
+  ) %>%
+  filter(!is.na(sample))
+
+map_sample_id <- tumor_long %>%
+  select(sample, ID_BUTCH) %>%
+  distinct()
+
+id_butch_per_sample <- setNames(map_sample_id$ID_BUTCH, map_sample_id$sample)
+sample_groups <- id_butch_per_sample[samples]
+
+group_factor <- factor(sample_groups)
+group_numeric <- as.numeric(group_factor)
+
+n_groups <- nlevels(group_factor)
+palette_groups <- colorRampPalette(brewer.pal(8, "Dark2"))(n_groups)
+
+corr_matrix <- matrix(1, nrow = length(samples), ncol = length(samples))
+rownames(corr_matrix) <- colnames(corr_matrix) <- samples
+
+for (i in 1:nrow(ngs_results)) {
+  row <- ngs_results[i, ]
+  corr_matrix[row$sample1, row$sample2] <- row$correlation
+  corr_matrix[row$sample2, row$sample1] <- row$correlation  
+}
+
+clustering <- hclust(as.dist(1 - corr_matrix))
+clustering <- as.dendrogram(clustering)
+
+labels_in_dend <- labels(clustering)
+groups_ordered  <- group_numeric[match(labels_in_dend, samples)]
+
+clustering_colored <- color_branches(clustering,
+                                     clusters = groups_ordered,
+                                     col = palette_groups)
+clustering_colored <- set(clustering_colored, "branches_lwd", 2.5)
+
+options(bitmapType = 'cairo')
+plot(clustering_colored,
+     main = "Samples Clustering from NGSCheckmate results on CRC",
+     ylab = "Distance", xlab = "Samples")
+
+legend("topright", legend = levels(group_factor),
+       col = palette_groups, lwd = 2,
+       cex = 0.7, bty = "n", title = "ID_BUTCH")
+
+```
+
+```{r, fig.width=21, fig.height=6}
+# por tumor-germinal
+tumor_long_germ_tum <- tumor_match %>%
+  pivot_longer(
+    cols = c(DNA_GERM, DNA_TUM_1, DNA_TUM_2),
+    names_to = "tipo",
+    values_to = "sample"
+  ) %>%
+  filter(!is.na(sample)) %>%
+  mutate(
+    tipo_bio = ifelse(tipo == "DNA_GERM", "Germinal", "Tumor")
+  )
+
+map_sample_tipo <- setNames(tumor_long_germ_tum$tipo_bio,
+                            tumor_long_germ_tum$sample)
+sample_tipo <- map_sample_tipo[samples]
+pal_tipo <- c("Germinal" = "dodgerblue3",
+              "Tumor"    = "firebrick3")
+
+tipo_factor <- factor(sample_tipo, levels = names(pal_tipo))
+
+labs_dend <- labels(clustering_colored)
+label_cols <- pal_tipo[ as.character(tipo_factor) ]
+label_cols_ordered <- label_cols[ match(labs_dend, samples) ]
+
+clustering_combined <- dendextend::set(clustering_colored,
+                                       what = "labels_col",
+                                       value = label_cols_ordered)
+
+clustering_combined <- dendextend::set(clustering_combined,
+                                       "labels_cex", 0.9)
+
+plot(clustering_combined,
+     main = "Samples Clustering from NGSCheckmate results on CRC",
+     ylab = "Distance", xlab = "Samples")
+legend("topleft", legend = names(pal_tipo),
+       col = pal_tipo, lwd = 2,
+       cex = 0.7, bty = "n", title = "SAMPLE TYPE")
+legend("topright", legend = levels(group_factor),
+       col = palette_groups, lwd = 2,
+       cex = 0.7, bty = "n", title = "ID_BUTCH")
+```
+
+```{r heatmap, fig.width=16, fig.height=16,, message=FALSE, warning=FALSE}
+library(pheatmap)
+pheatmap(corr_matrix,
+         main = "Simiilarity matrix from NGSCheckmate on CRC",
+         show_rownames = T, show_colnames = T,
+         cluster_rows = T, cluster_cols = T,
+         fontsize_row = 10, fontsize_col = 10,
+         fontsize = 12)
+```
+# Network of matched samples
+```{r graph_1, fig.width=16, fig.height=16, message=FALSE, warning=FALSE}
+library(igraph)
+# Create graph object using only matched data
+graph <- graph_from_data_frame(ngs_match[, c("sample1", "sample2", 
+                                             "correlation")], directed = FALSE)
+
+# Set edge 
+E(graph)$width <- E(graph)$correlation * 2
+E(graph)$weight <- 1 / (E(graph)$correlation * 10)  
+E(graph)$color <- "red"
+
+# Node color
+V(graph)$color <- "lightgray"
+
+# Use Fruchterman-Reingold layout with weights
+layout <- layout_with_fr(graph, weights = E(graph)$weight)
+
+plot(graph, 
+     layout = layout,
+     vertex.size = 7,  
+     vertex.label.font = 3, 
+     vertex.label.cex = 1,  
+     edge.width = E(graph)$width,
+     edge.color = E(graph)$color,
+     main = "Sample Similarity Network (Matched Samples Only)")
+
+
+legend("bottomright", 
+       legend = c("Matched samples"),
+       lty = c(1),
+       lwd = c(2),
+       col = c("red"),
+       cex = 1,
+       bty = "n")
+```
+
+```{r network_2, fig.width=16, fig.height=16, message=FALSE, warning=FALSE}
+library(viridis)
+
+min_similarity <- min(E(graph)$correlation)
+max_similarity <- max(E(graph)$correlation)
+color_scale <- rev(colorRampPalette(viridis(5))(10))
+E(graph)$color <- color_scale[cut(E(graph)$correlation, breaks = 10)]
+
+
+scaling_factor <- 0.15  
+E(graph)$weight <- scaling_factor * (1 - E(graph)$correlation)
+
+
+min_width <- 2  
+max_width <- 5  
+E(graph)$width <- max_width - 
+  (E(graph)$correlation - min_similarity) / 
+  (max_similarity - min_similarity) * 
+  (max_width - min_width)
+
+
+layout <- layout_with_fr(graph, 
+                         weights = E(graph)$weight, 
+                         niter = 10000,
+                         area = vcount(graph)^2.3,  
+                         repulserad = vcount(graph)^3.2)  
+
+
+layout <- layout * 1.4  
+
+# Calculate legend positions
+plot_width <- par("usr")[2] - par("usr")[1]
+plot_height <- par("usr")[4] - par("usr")[3]
+legend_width <- 0.015 * plot_width  
+legend_height <- 0.25 * plot_height  
+
+# Adjust this value to move the legend horizontally
+legend_offset <- 0.03  
+legend_x <- par("usr")[2] + legend_offset * plot_width
+legend_y_bottom <- par("usr")[4] - 0.4 * plot_height 
+legend_y_top <- legend_y_bottom + legend_height
+
+# Add color legend for edge colors
+legend_image <- as.raster(matrix(color_scale, ncol = 1))
+text_x <- legend_x + legend_width + 0.005 * plot_width
+y_positions <- seq(legend_y_bottom, legend_y_top, length.out = 5)
+legend_labels <- round(seq(min_similarity, max_similarity, length.out = 5), 2)
+
+plot(graph, 
+     layout = layout,
+     vertex.size = 7,  
+     vertex.label.cex = 1, 
+     vertex.label.font = 3,
+     edge.width = E(graph)$width,
+     edge.color = E(graph)$color,
+     main = "Sample Similarity Network (Matched Samples Only)")
+rasterImage(legend_image, 
+            xleft = legend_x, 
+            xright = legend_x + legend_width, 
+            ybottom = legend_y_bottom, 
+            ytop = legend_y_top)
+text(x = text_x, 
+     y = y_positions, 
+     labels = legend_labels, 
+     pos = 4, 
+     cex = 1.25)  
+
+text(x = legend_x + legend_width / 2, 
+     y = legend_y_top + 0.02 * plot_height, 
+     "Similarity (Color)", 
+     cex = 1.25,  
+     srt = 0)
+```
+```{r separated_by_sequencing, fig.width=16, fig.height=16}
+metadata <- read.delim(
+  "/mnt/beegfs/labs/DiGenomaLab/CANCER/GALLBADDER/analysis/NEW_CHI/Metadata/GBC.metadata.updated.CHI.quantiseq.txt", 
+                       sep = "\t", header = T)
+metadata_mgi <- metadata %>% 
+  dplyr::filter(sequencing == "MGI")
+
+ngs_match_mgi <- ngs_match %>%
+  dplyr::filter(sub("_.*", "", sample1) %in% metadata_mgi$sample_id,
+                sub("_.*", "", sample2) %in% metadata_mgi$sample_id)
+
+graph <- graph_from_data_frame(ngs_match_mgi[, c("sample1", 
+                                                 "sample2", "correlation")], directed = FALSE)
+V(graph)$color <- "lightgray"
+
+min_similarity <- min(E(graph)$correlation)
+max_similarity <- max(E(graph)$correlation)
+
+color_scale <- rev(colorRampPalette(viridis(5))(10))
+E(graph)$color <- color_scale[cut(E(graph)$correlation, breaks = 10)]
+
+scaling_factor <- 0.15  
+E(graph)$weight <- scaling_factor * (1 - E(graph)$correlation)
+
+min_width <- 2  
+max_width <- 5  
+E(graph)$width <- max_width -
+  (E(graph)$correlation - min_similarity) / 
+  (max_similarity - min_similarity) * 
+  (max_width - min_width)
+
+layout <- layout_with_fr(graph, 
+                         weights = E(graph)$weight, 
+                         niter = 10000,
+                         area = vcount(graph)^2.3,  
+                         repulserad = vcount(graph)^3.2)  
+
+
+layout <- layout * 1.4  
+plot_width <- par("usr")[2] - par("usr")[1]
+plot_height <- par("usr")[4] - par("usr")[3]
+legend_width <- 0.015 * plot_width  
+legend_height <- 0.25 * plot_height  
+
+legend_offset <- 0.03 
+legend_x <- par("usr")[2] + legend_offset * plot_width
+legend_y_bottom <- par("usr")[4] - 0.4 * plot_height  
+legend_y_top <- legend_y_bottom + legend_height
+
+legend_image <- as.raster(matrix(color_scale, ncol = 1))
+text_x <- legend_x + legend_width + 0.005 * plot_width
+y_positions <- seq(legend_y_bottom, legend_y_top, length.out = 5)
+legend_labels <- round(seq(min_similarity, max_similarity, length.out = 5), 2)
+
+plot(graph, 
+     layout = layout,
+     vertex.size = 7,  
+     vertex.label.cex = 1, 
+     vertex.label.font = 3,
+     edge.width = E(graph)$width,
+     edge.color = E(graph)$color,
+     main = "Sample Similarity Network on new chilean samples GBC")
+rasterImage(legend_image, 
+            xleft = legend_x, 
+            xright = legend_x + legend_width, 
+            ybottom = legend_y_bottom, 
+            ytop = legend_y_top)
+text(x = text_x, 
+     y = y_positions, 
+     labels = legend_labels, 
+     pos = 4, 
+     cex = 1.25)  
+text(x = legend_x + legend_width / 2, 
+     y = legend_y_top + 0.02 * plot_height, 
+     "Similarity (Color)", 
+     cex = 1.25, 
+     srt = 0)
+```
+```{r correlation_1}
+pattern <- paste0("^(", 
+                  paste(c("1293_1", "1788_1", "2225_1"), 
+                        collapse = "|"), ")")
+ngs_match_mgi_1 <- ngs_match %>%
+  filter(grepl(pattern, sample1) | grepl(pattern, sample2))
+
+ngs_match_mgi_1
+
+ngs_match_mgi_2 <- ngs_match %>%
+  filter(grepl("PUC", sample1) | grepl("PUC-GBC1", sample2))
+
+ngs_match_mgi_2
+```
+
