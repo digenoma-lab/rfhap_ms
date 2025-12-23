@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Figure1"
 output: html_document
 date: "2025-11-27"
 ---
@@ -18,17 +18,352 @@ library(RColorBrewer)
 
 ```
 
-####Venn
-```{r}
-merged_all = readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/classification_comparison/random_forest/train-v03/intersection_methods.rds")
+
+## Model Performance and feature importance
+
+model performance
+```{r }
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+library(stringr)
+
+
+#model testing
+#HG002
+cm_hg002=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/train/HG002_standar_ont_sup_PAW70337.fastq_fastkm_matrix_confusion_matrix.rds")
+#HG01109
+cm_hg01109=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/new_datasets/HG01109/results/rf/train/HG01109_1_R941_Guppy_6.1.2.fq_fastkm_matrix_confusion_matrix.rds")
+#HG005
+cm_hg005=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/hg005_v2/results/rf/train/HG005_standar_ont_sup_PAW88001.fastq_fastkm_matrix_confusion_matrix.rds")
+#HG01243
+cm_hg01243=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/new_datasets/HG01243/results/rf/train/HG01243_1_R941_Guppy_6.1.2.fq_fastkm_matrix_confusion_matrix.rds")
+
+
+#---------------------------
+# 1) Collect metrics into one tidy table
+#---------------------------
+extract_byClass <- function(cm, dataset, chemistry) {
+  as.data.frame(cm$byClass) |>
+    rownames_to_column("Class") |>
+    mutate(
+      Class = str_remove(Class, "^Class:\\s*"),
+      Dataset = dataset,
+      Chemistry = chemistry
+    )
+}
+
+metrics_df <- bind_rows(
+  extract_byClass(cm_hg002,   "HG002",   "R10.4"),
+  extract_byClass(cm_hg005,   "HG005",   "R10.4"),
+  extract_byClass(cm_hg01243, "HG01243", "R9.4.1"),
+  extract_byClass(cm_hg01109, "HG01109", "R9.4.1")
+) |>
+  # keep the metrics you likely want in a supplement
+  select(Dataset, Chemistry, Class,
+         Sensitivity, Specificity,
+         Precision, Recall, F1,
+         `Pos Pred Value`, `Neg Pred Value`,
+         `Balanced Accuracy`,
+         Prevalence, `Detection Rate`, `Detection Prevalence`) |>
+  mutate(
+    Dataset = factor(Dataset, levels = c("HG002","HG005","HG01243","HG01109")),
+    Chemistry = factor(Chemistry, levels = c("R10.4","R9.4.1")),
+    Class = factor(Class, levels = c("A","B","U"))
+  )
+
+# Optional: nicely rounded version for the Supplementary Table
+metrics_table <- metrics_df |>
+  mutate(across(where(is.numeric), ~ round(.x, 6)))
+
+# Export (choose one)
+write.csv(metrics_table, "Supplementary_Table_ModelPerformance.csv", row.names = FALSE)
+
+plot_df <- metrics_df |>
+  select(Dataset, Chemistry, Class,
+         Sensitivity, Specificity, Precision, Recall, F1, `Balanced Accuracy`) |>
+  pivot_longer(
+    cols = c(Sensitivity, Specificity, Precision, Recall, F1, `Balanced Accuracy`),
+    names_to = "Metric",
+    values_to = "Value"
+  ) |>
+  mutate(
+    Metric = factor(Metric,
+                    levels = c("F1","Balanced Accuracy","Precision","Recall","Sensitivity","Specificity"))
+  )
+
+p_perf <- ggplot(plot_df, aes(x = Dataset, y = Value, shape = Class, color = Chemistry)) +
+  geom_point(size = 3, position = position_dodge(width = 0.45)) +
+  facet_wrap(~Metric, ncol = 3, scales = "fixed") +
+  scale_y_continuous(limits = c(0.98, 1.0), breaks = seq(0.98, 1.0, by = 0.005)) +
+  labs(
+    title = "RFHap model performance across datasets",
+    x = NULL,
+    y = "Metric value",
+    color = "Chemistry",
+    shape = "Class"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+p_perf
+pdf("Model_metrics.pdf", width = 6, height = 4)
+p_perf
+dev.off()
+
+
+f1_df <- metrics_df |>
+  select(Dataset, Chemistry, Class, F1) |>
+  mutate(
+    Dataset = factor(Dataset, levels = c("HG002","HG005","HG01243","HG01109")),
+    Chemistry = factor(Chemistry, levels = c("R10.4","R9.4.1")),
+    Class = factor(Class, levels = c("A","B","U"))
+  )
+
+p_f1= ggplot(f1_df, aes(x = Dataset, y = F1, shape = Class, color = Chemistry)) +
+  geom_point(size = 3, position = position_dodge(width = 0.45)) +
+  #facet_wrap(~Metric, ncol = 3, scales = "fixed") +
+  scale_y_continuous(limits = c(0.98, 1.0), breaks = seq(0.98, 1.0, by = 0.005)) +
+  labs(
+    #title = "RFHap model performance across datasets",
+    x = NULL,
+    y = "F1",
+    color = "Chemistry",
+    shape = "Class"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    #panel.grid = element_blank(),
+    strip.text = element_text(face = "plain", size = 13),
+    axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, size = 11),
+    axis.text.y = element_text(size = 11),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10),
+    legend.position = "bottom"
+  )
+
+p_f1
+
 ```
 
-```{r cars}
-df = merged_all
-df
-```
-##Venn test
+
+model feature importance 
 ```{r}
+#datasets HG002, HG005, HG01109, and HG01243
+
+
+
+#HG002
+rf_model_hg002=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/train/HG002_standar_ont_sup_PAW70337.fastq_fastkm_matrix_rf_model.rds")
+#HG01109
+rf_model_hg01109=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/new_datasets/HG01109/results/rf/train/HG01109_1_R941_Guppy_6.1.2.fq_fastkm_matrix_rf_model.rds")
+#HG005
+rf_model_hg005=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/hg005_v2/results/rf/train/HG005_standar_ont_sup_PAW88001.fastq_fastkm_matrix_rf_model.rds")
+#HG01243
+rf_model_hg01243=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/new_datasets/HG01243/results/rf/train/HG01243_1_R941_Guppy_6.1.2.fq_fastkm_matrix_rf_model.rds")
+
+
+
+
+#we merge feature importance per dataset 
+rf_importance=cbind(rf_model_hg002$importance,rf_model_hg005$importance,rf_model_hg01243$importance,rf_model_hg01109$importance)
+colnames(rf_importance)=c("HG002","HG005","HG01243","HG01109")
+
+
+
+
+
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(forcats)
+
+# long format
+imp_long <- as.data.frame(rf_importance) |>
+  rownames_to_column("feature") |>
+  pivot_longer(cols = -feature, names_to = "dataset", values_to = "gini") |>
+  mutate(
+    dataset = factor(dataset, levels = c("HG002","HG005","HG01243","HG01109")),
+    chemistry = if_else(dataset %in% c("HG002","HG005"), "R10.4", "R9.4.1")
+  ) |>
+  group_by(dataset) |>
+  mutate(gini_pct = 100 * gini / sum(gini)) |>
+  ungroup()
+
+top_n <- 15
+
+# pick shared top features by mean % importance across datasets
+feat_order <- imp_long |>
+  group_by(feature) |>
+  summarise(mean_pct = mean(gini_pct, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(mean_pct)) |>
+  slice_head(n = top_n) |>
+  pull(feature)
+
+heat_df <- imp_long |>
+  filter(feature %in% feat_order) |>
+  mutate(
+    # put MOST important at TOP: make highest-importance features the LAST levels
+    feature = factor(feature, levels = rev(feat_order))
+  )
+
+a=ggplot(heat_df, aes(x = dataset, y = feature, fill = gini_pct)) +
+  geom_tile(color = "white", linewidth = 0.35) +
+  geom_text(aes(label = sprintf("%.1f", gini_pct)),color = "white", size = 3.2) +
+  facet_grid(. ~ chemistry, scales = "free_x", space = "free_x") +
+  scale_fill_viridis_c(option = "magma", name = "% total\nGini") +
+  labs(x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid = element_blank(),
+    strip.text = element_text(face = "plain", size = 13),
+    axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, size = 11),
+    axis.text.y = element_text(size = 11),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10),
+    legend.position = "right",
+    #plot.margin = margin(5, 8, 5, 5)
+  )
+
+# chem_sum from previous step (has R10.4, R9.4.1, delta, abs_delta)
+chem_sum <- imp_long |>
+  group_by(chemistry, feature) |>
+  summarise(mean_pct = mean(gini_pct, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = chemistry, values_from = mean_pct) |>
+  mutate(
+    delta = `R10.4` - `R9.4.1`,
+    abs_delta = abs(delta),
+    direction = if_else(delta >= 0, "Higher in R10.4", "Higher in R9.4.1")
+  )
+
+plot_df <- chem_sum |>
+  slice_max(abs_delta, n = top_n, with_ties = FALSE) |>
+  mutate(feature = fct_reorder(feature, delta))  # orders by signed delta
+
+b=ggplot(plot_df, aes(x = delta, y = feature, fill = direction)) +
+  geom_col(width = 0.8) +
+  geom_vline(xintercept = 0, linewidth = 0.8) +
+  geom_text(aes(label = sprintf("%+.2f", delta)),
+            hjust = ifelse(plot_df$delta > 0, -0.15, 1.15),
+            size = 3.6, show.legend = FALSE) +
+  labs(
+   # title = "Chemistry effect on RF feature importance",
+   # subtitle = "Δ = mean(%Gini) in R10.4 minus R9.4.1 (top shifts)",
+    #x = "Δ % Gini (R10.4 − R9.4.1)",
+    x= NULL,
+    y = NULL,
+    fill = NULL
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold"),
+    #plot.margin = margin(10, 60, 10, 10)
+  )
+
+a+b
+
+```
+
+
+###Prediction
+```{r}
+library(data.table)
+prob = read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/prediction/HG002_standar_ont_sup_PAW71238.fastq_fastkm_matrix.9_rf_prediction.txt", sep =" ", header =TRUE)
+
+library(ggplot2)
+library(scales)
+
+fill_colors <- c(
+  "A" = alpha("#66C2A5", 0.18),
+  "B" = alpha("steelblue2", 0.18),
+  "U" = alpha("lightsalmon", 0.18)
+)
+
+border_colors <- c(
+  "A" = "#2CA58D",
+  "B" = "#2B6CB0",
+  "U" = "#F28E6B"
+)
+
+# optional: if there are MANY points, downsample to keep the figure readable
+set.seed(1)
+prob_plot_df <- prob
+# prob_plot_df <- prob |> dplyr::slice_sample(n = min(30000, nrow(prob)))  # uncomment if needed
+
+prob_plot <- ggplot(
+  prob_plot_df,
+  aes(
+    x = Predicted.prob.A,
+    y = Predicted.prob.B,
+    fill  = Predicted.Class,
+    color = Predicted.Class
+  )
+) +
+  # Simplex boundary A + B <= 1  (triangle)
+  geom_abline(intercept = 1, slope = -1, linewidth = 0.8, linetype = "22", color = "grey35") +
+  annotate("segment", x = 0, xend = 1, y = 0, yend = 0, linewidth = 0.6, color = "grey35") +
+  annotate("segment", x = 0, xend = 0, y = 0, yend = 1, linewidth = 0.6, color = "grey35") +
+
+  # Optional class boundaries if your rule is argmax(A,B,U) with U = 1-A-B
+  # A = B   (split A vs B)
+  #geom_abline(intercept = 0, slope = 1, linewidth = 0.6, linetype = "33", color = "grey55") +
+  # A = U -> A = (1-A-B) -> 2A + B = 1 -> B = 1 - 2A
+  #geom_abline(intercept = 1, slope = -2, linewidth = 0.6, linetype = "33", color = "grey55") +
+  # B = U -> A + 2B = 1 -> B = (1-A)/2
+  #geom_abline(intercept = 0.5, slope = -0.5, linewidth = 0.6, linetype = "33", color = "grey55") +
+
+  geom_point(
+    shape  = 21,
+    size   = 1.6,      # smaller!
+    stroke = 0.25,     # thinner border
+    alpha  = 0.55      # extra transparency
+  ) +
+  scale_fill_manual(values = fill_colors, drop = FALSE) +
+  scale_color_manual(values = border_colors, drop = FALSE) +
+  coord_fixed(xlim = c(0,1), ylim = c(0,1), expand = FALSE) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.1)) +
+  labs(
+    x = "P(class A)",
+    y = "P(class B)",
+    fill  = "Predicted class",
+    color = "Predicted class"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text = element_text(color = "black"),
+    axis.text.x = element_text(angle = 0),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.box = "horizontal"
+  )
+
+prob_plot
+
+
+
+```
+##Venn
+```{r}
+merged_all = readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/classification_comparison/random_forest/train-v03/intersection_methods.rds")
+df = merged_all
+head(df)
+```
+
+### figure
+```{r}
+
 library(ggplot2)
 library(ggforce)
 
@@ -61,12 +396,6 @@ res$percent <- round(res$percent, 2)
 
 print(res)
 cat("Suma porcentajes:", sum(res$percent), "\n")  # ~100 (puede haber redondeo)
-
-# Para graficar (ejemplo esquemático con ggforce):
-# posiciones de etiquetas - ajusta si hace falta
-```
-
-```{r}
 
 labels_pos <- data.frame(
   categoria = c(
@@ -150,140 +479,174 @@ p <- ggplot() +
     #"rfhap"        = "#619CFF"
   #))
 
-print(p)
+#print(p)
+p
 ```
 
 
-##Importance
-```{r}
-rf_model=readRDS("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/train/HG002_standar_ont_sup_PAW70337.fastq_fastkm_matrix_rf_model.rds")
 
-```
+## Upset plot
 
-```{r}
+```{r upset}
+library(UpSetR)
+library(grid)
 
-varimplot=varImpPlot(rf_model,main="Importance of features")
-varimplot=as.data.frame(varimplot)
-varimplot$feature=row.names(varimplot)
-```
+A <- as.character(df$trio_binning)
+B <- as.character(df$hifiasm)
+C <- as.character(df$rfhap)
 
-```{r}
-
-set2_col <- "steelblue"
-
-plot_importance <- varimplot %>%
-  filter(MeanDecreaseGini > 500) %>%
-  mutate(feature = fct_reorder(feature, MeanDecreaseGini)) %>%
-  ggplot(aes(
-    x = MeanDecreaseGini,
-    y = feature,
-    size = MeanDecreaseGini        
-  )) +
-    geom_point(
-    shape  = 21,              
-    fill   = "steelblue",     
-    color  = "steelblue4",    
-    stroke = 1.2,            
-    alpha  = 0.6
-  ) +
-  scale_size_continuous(
-    range = c(3, 10),              
-    guide = "none"                 
-  ) +
-  theme_minimal() +
-  labs(
-    x = "MeanDecreaseGini",
-    y = "Feature"
-  ) +
-  theme(
-    text = element_text(size = 27),
-    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), axis.text.y = element_text(color = "black")
-  )
-
-png("importance.png", width = 1000 , height = 800)
-plot_importance
-dev.off()
-plot_importance
-```
-
-###Prediction
-```{r}
-library(data.table)
-prob = read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/prediction/HG002_standar_ont_sup_PAW71238.fastq_fastkm_matrix.9_rf_prediction.txt", sep =" ", header =TRUE)
-```
-
-```{r}
-fill_colors <- c(
-  "A" = alpha("#66C2A5", 0.25),    
-  "B" = alpha("steelblue2", 0.25),
-  "U" = alpha("lightsalmon", 0.25)
+sets_list <- list(
+  `Trio binning = Hifiasm` = which(A == B),
+  `Trio binning = RFHap`   = which(A == C),
+  `Hifiasm = RFHap`        = which(B == C),
+  `All three agree`        = which(A == B & B == C),
+  `All different`          = which(A != B & A != C & B != C)
 )
 
-border_colors <- c(
-  "A" = "#66C2A5",     # verde más oscuro
-  "B" = "steelblue", # azul más oscuro
-  "U" = "lightsalmon"     # naranjo más oscuro
+upset_input <- fromList(sets_list)
+
+# nicer names + stable order (top-to-bottom)
+set_order <- c(
+  "Trio binning = Hifiasm",
+  "Trio binning = RFHap",
+  "Hifiasm = RFHap",
+  "All three agree",
+  "All different"
 )
+
+# format bar labels with commas
+lab_commas <- function(x) format(x, big.mark = ",", scientific = FALSE)
+
+
+
+  upset(
+  upset_input,
+  sets = set_order,
+  keep.order = TRUE,
+
+  # show the most relevant intersections first (largest)
+  order.by = "freq",
+  nintersects = 10,
+
+  # layout
+  mb.ratio = c(0.65, 0.35),
+
+  # labels
+  mainbar.y.label = "intersection size",
+  sets.x.label    = "set size",
+  text.scale      = c(1.7, 1.4, 1.2, 1.2, 1.4, 1.2),
+
+  # colors
+  main.bar.color = "#2B6CB0",   # blue
+  sets.bar.color = "#2F855A",   # green
+  matrix.color   = "#444444",   # dark grey
+
+  # show counts on top of intersection bars
+  show.numbers = TRUE,
+  #number.angles = 0
+
+  # NOTE: UpSetR can't directly format show.numbers labels,
+  # but the larger font + color helps readability.
+)
+
+# 2) record it
+d_rec <- recordPlot()
+
+# 3) convert the recorded plot into a grob (THIS is what patchwork needs)
+d_grob <- grid.grabExpr(replayPlot(d_rec))
+
+# 4) wrap grob for patchwork
+d <- wrap_elements(full = d_grob)
+
+
+
+
 ```
 
-```{r}
-prob_plot <- ggplot(
-  prob,
-  aes(
-    x = Predicted.prob.A,
-    y = Predicted.prob.B,
-    fill  = Predicted.Class,  
-    color = Predicted.Class
-  )
-) +
-  geom_point(
-    shape  = 21,
-    size   = 3,
-    stroke = 0.6               
-  ) +
-  labs(
-    x = "A",
-    y = "B",
-    fill  = "Predicted Class",
-    color = "Predicted Class"
-  ) + 
-  scale_fill_manual(values = fill_colors) +
-  scale_color_manual(values = border_colors) +
-  scale_y_continuous(
-    limits = c(0, 1),
-    breaks = seq(0, 1, by = 0.1),
-    expand = c(0, 0)
-  ) +
-  scale_x_continuous(
-    limits = c(0, 1),
-    breaks = seq(0, 1, by = 0.1),
-    expand = c(0, 0)
-  ) +
-  theme_minimal() +
-    theme(
-    text = element_text(size = 27),
-    axis.text.x = element_text(angle = 30, hjust = 1, color = "black"), axis.text.y = element_text(color = "black"),
-    legend.position = "bottom"
+```{r to}
+library(UpSetR)
+
+# Avoid scientific notation in bar labels
+options(scipen = 999)
+
+make_upset_for_class <- function(df, cls,
+                                 highlight = "#2B6CB0",
+                                 neutral_main = "grey35",
+                                 sets_bar = "grey70",
+                                 matrix_col = "grey30") {
+
+  # Build sets: reads called == cls by each method
+  sets_list <- list(
+    "Trio binning" = which(df$trio_binning == cls),
+    "Hifiasm"      = which(df$hifiasm == cls),
+    "RFHap"        = which(df$rfhap == cls)
   )
 
+  input <- fromList(sets_list)
 
-prob_plot
+  upset(
+    input,
+    sets = c("Trio binning", "Hifiasm", "RFHap"),
+    keep.order = TRUE,
+
+    # show the largest overlaps first
+    order.by = c("freq", "degree"),
+    nintersects = 7,
+
+    # better sizing / readability
+    mb.ratio = c(0.65, 0.35),
+    point.size = 3.2,
+    line.size = 1.1,
+    text.scale = c(1.6, 1.3, 1.2, 1.2, 1.3, 1.1),
+
+    # axis labels (explicit about the class)
+    mainbar.y.label = paste0("Haplotype '", cls, "' (intersection size)"),
+    sets.x.label    = paste0("Haplotype '", cls, "' (set size)"),
+
+    # base colors
+    main.bar.color = neutral_main,
+    sets.bar.color = sets_bar,
+    matrix.color   = matrix_col,
+
+    # highlight the key message: all three methods agree on this class
+    queries = list(
+      list(
+        query = intersects,
+        params = list("Trio binning", "Hifiasm", "RFHap"),
+        color = highlight,
+        active = TRUE
+      )
+    ),
+
+    show.numbers = TRUE,
+    #number.angles = 0
+  )
+}
+
+# --- Use consistent colors per class (paper-friendly) ---
+# A = green, B = blue, U = orange
+make_upset_for_class(merged_all, "A", highlight = "#2F855A")  # green
+make_upset_for_class(merged_all, "B", highlight = "#2B6CB0")  # blue
+make_upset_for_class(merged_all, "U", highlight = "#F28E2B")  # orange
 
 ```
+
+## Merge plots 
 
 ```{r}
 library(patchwork)
-png("super_figure.png", width = 3000, height = 1700 , res = 130)
-(plot_importance | p | prob_plot) +
+
+# 3) Combine everything (a, b, prob_plot are ggplot objects)
+p2 <- ((p_f1|a) / (b | d)) +
   plot_annotation(
     tag_levels = "A",
     theme = theme(
-      plot.tag = element_text(
-        size = 32,
-        face = "bold"   
-      )
+      plot.tag = element_text(size = 16, face = "bold")
     )
   )
+p2
+pdf("Figure1.pdf", width = 10, height = 10)
+p2
 dev.off()
 ```
 
