@@ -495,69 +495,67 @@ A <- as.character(df$trio_binning)
 B <- as.character(df$hifiasm)
 C <- as.character(df$rfhap)
 
-<<<<<<< HEAD
+
 sets_list <- list(
   `Trio binning = Hifiasm` = which(A == B),
   `Trio binning = RFHap`   = which(A == C),
   `Hifiasm = RFHap`        = which(B == C),
   `All three agree`        = which(A == B & B == C),
-  `All different`          = which(A != B & A != C & B != C)
-=======
-```{r}
+  `All different`          = which(A != B & A != C & B != C))
 
-set2_col <- "steelblue"
-
-plot_importance <- varimplot %>%
-  filter(MeanDecreaseGini > 500) %>%
-  mutate(feature = fct_reorder(feature, MeanDecreaseGini)) %>%
-  ggplot(aes(
-    x = MeanDecreaseGini,
-    y = feature,
-    size = MeanDecreaseGini        
-  )) +
-    geom_point(
-    shape  = 21,              
-    fill   = "steelblue",     
-    color  = "steelblue4",    
-    stroke = 1.2,            
-    alpha  = 0.6
-  ) +
-  scale_size_continuous(
-    range = c(3, 10),              
-    guide = "none"                 
-  ) +
-  theme_minimal() +
-  labs(
-    x = "MeanDecreaseGini",
-    y = "Feature"
-  ) +
-  theme(
-    text = element_text(size = 27),
-    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), axis.text.y = element_text(color = "black")
-  )
-
-png("importance.png", width = 1000 , height = 800)
-plot_importance
-dev.off()
-plot_importance
+# set2_col <- "steelblue"
+# 
+# plot_importance <- varimplot %>%
+#   filter(MeanDecreaseGini > 500) %>%
+#   mutate(feature = fct_reorder(feature, MeanDecreaseGini)) %>%
+#   ggplot(aes(
+#     x = MeanDecreaseGini,
+#     y = feature,
+#     size = MeanDecreaseGini        
+#   )) +
+#     geom_point(
+#     shape  = 21,              
+#     fill   = "steelblue",     
+#     color  = "steelblue4",    
+#     stroke = 1.2,            
+#     alpha  = 0.6
+#   ) +
+#   scale_size_continuous(
+#     range = c(3, 10),              
+#     guide = "none"                 
+#   ) +
+#   theme_minimal() +
+#   labs(
+#     x = "MeanDecreaseGini",
+#     y = "Feature"
+#   ) +
+#   theme(
+#     text = element_text(size = 27),
+#     axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), axis.text.y = element_text(color = "black")
+#   )
+# 
+# png("importance.png", width = 1000 , height = 800)
+# plot_importance
+# dev.off()
+# plot_importance
 ```
 
 ###Prediction
 ```{r}
-library(data.table)
-prob = read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/prediction/HG002_standar_ont_sup_PAW71238.fastq_fastkm_matrix.2_rf_prediction.txt", sep =" ", header =TRUE)
+# library(data.table)
+# prob = read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/rfhap/results/HG002/HG002_dataset/rf/prediction/HG002_standar_ont_sup_PAW71238.fastq_fastkm_matrix.2_rf_prediction.txt", sep =" ", header =TRUE)
 
-table(prob$Predicted.Class)
+#table(prob$Predicted.Class)
 
 ```
 
 ```{r}
-fill_colors <- c(
-  "A" = alpha("#66C2A5", 0.25),    
-  "B" = alpha("steelblue2", 0.25),
-  "U" = alpha("lightsalmon", 0.25)
->>>>>>> refs/remotes/origin/main
-)
+# fill_colors <- c(
+#   "A" = alpha("#66C2A5", 0.25),    
+#   "B" = alpha("steelblue2", 0.25),
+#   "U" = alpha("lightsalmon", 0.25)
+# >>>>>>> refs/remotes/origin/main
+# )
 
 upset_input <- fromList(sets_list)
 
