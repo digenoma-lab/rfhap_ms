@@ -1,0 +1,217 @@
+---
+title: "error_merqury_exploration"
+output: html_document
+date: "2025-12-19"
+---
+
+```{r setup, include=FALSE}
+library(tidyr)
+library(ggplot2)
+```
+
+
+
+```{r cars}
+# procesar_switch_errors_baseR.R
+dir_path <- "/mnt/beegfs/home/dgonzalez/DiGenomaLab/rfhap/analysis/merqury_error_analysis"
+
+files <- list.files(dir_path, pattern = "\\.switch\\.bed\\.errors$", full.names = TRUE)
+files
+```
+
+
+```{r cars}
+# resultado vacío
+res <- data.frame(stringsAsFactors = FALSE)
+
+for (f in files) {
+  lines <- readLines(f, warn = FALSE)
+  lines <- trimws(lines)
+  lines <- lines[lines != ""]            # quitar líneas vacías
+
+  # contenedores para los conteos
+  counts <- list(long = 0, same = 0, short = 0, switchback = 0)
+
+  for (ln in lines) {
+    # capturar número y palabra (maneja espacios irregulares y comas en números)
+    m <- regexec("^\\s*([0-9,]+)\\s+([A-Za-z]+)", ln)
+    parts <- regmatches(ln, m)[[1]]
+    if (length(parts) >= 3) {
+      cnt <- as.numeric(gsub(",", "", parts[2]))
+      cls <- tolower(parts[3])
+
+      # normalizar a las 4 categorías buscadas
+      if (grepl("long", cls)) {
+        counts$long <- counts$long + cnt
+      } else if (grepl("^same$|\\bsame\\b", cls)) {
+        counts$same <- counts$same + cnt
+      } else if (grepl("short", cls)) {
+        counts$short <- counts$short + cnt
+      } else if (grepl("switch", cls)) {
+        counts$switchback <- counts$switchback + cnt
+      } else {
+        # si aparece una clase inesperada, la ignoramos (o podrías guardarla)
+      }
+    }
+  }
+
+  fname <- basename(f)
+  dataset <- regmatches(fname, regexpr("hg[0-9]+", fname))
+  haplotype <- if (grepl("hap[AB]", fname, ignore.case = TRUE)) {
+    regmatches(fname, regexpr("hap[AB]", fname, ignore.case = TRUE))
+  } else NA_character_
+
+  method <- if (grepl("hifiasm", fname, ignore.case = TRUE)) {
+    "hifiasm"
+  } else if (grepl("rfhap|rfhao", fname, ignore.case = TRUE)) {
+    "rfhap"
+  } else {
+    NA_character_
+  }
+
+  row <- data.frame(
+    file = fname,
+    dataset = ifelse(length(dataset) > 0, dataset, NA_character_),
+    haplotype = ifelse(length(haplotype) > 0, haplotype, NA_character_),
+    method = method,
+    long = counts$long,
+    same = counts$same,
+    short = counts$short,
+    switchback = counts$switchback,
+    stringsAsFactors = FALSE
+  )
+
+  res <- rbind(res, row)
+}
+
+# ordenar columnas y reemplazar NA por ""
+res[is.na(res)] <- ""
+res <- res[, c("file", "dataset", "haplotype", "method", "long", "same", "short", "switchback")]
+
+# guardar resultados
+out_wide <- file.path(dir_path, "summary_switch_errors.csv")
+write.csv(res, out_wide, row.names = FALSE)
+
+# crear versión "larga" (una fila por tipo de error) usando base R
+res_long_list <- lapply(seq_len(nrow(res)), function(i) {
+  data.frame(
+    file = res$file[i],
+    dataset = res$dataset[i],
+    haplotype = res$haplotype[i],
+    method = res$method[i],
+    error_type = c("long", "same", "short", "switchback"),
+    count = as.numeric(res[i, c("long", "same", "short", "switchback")]),
+    stringsAsFactors = FALSE
+  )
+})
+res_long <- do.call(rbind, res_long_list)
+
+out_long <- file.path(dir_path, "summary_switch_errors_long.csv")
+write.csv(res_long, out_long, row.names = FALSE)
+
+# mostrar resumen corto en consola
+print(res)
+cat("\nSaved:\n -", out_wide, "\n -", out_long, "\n")
+
+```
+
+
+```{r pressure, echo=FALSE}
+
+# recodificar haplotypes a etiquetas biológicas
+res$hap_label <- ifelse(res$haplotype == "hapA", "Maternal", "Paternal")
+
+# paleta manual
+cols <- c(
+  "hifiasm" = "#2C7FB8",  # azul medianamente oscuro
+  "rfhap"   = "#F28E2B"   # damasco normal
+)
+
+cols_light <- c(
+  "hifiasm" = "#9ECAE1",  # azul claro
+  "rfhap"   = "#FDB863"  # damasco claro
+)
+
+# barplot
+p_long <- ggplot(
+  res,
+  aes(
+    x = hap_label,
+    y = long,
+    fill = method
+  )
+) +
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7
+  ) +
+  facet_wrap(~ dataset) +
+  scale_fill_manual(
+    values = c(
+      hifiasm = "#2C7FB8",
+      rfhap   = "#F28E2B"
+    ),
+    name = "Method"
+  ) +
+  labs(
+    x = "Haplotype",
+    y = "Number of Long switch errors"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "grey90", colour = NA),
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(size = 11),
+    axis.title = element_text(size = 12),
+    legend.position = "bottom"
+  )
+
+p_long
+
+```
+```{r}
+# barplot
+p_short <- ggplot(
+  res,
+  aes(
+    x = hap_label,
+    y = short,
+    fill = method
+  )
+) +
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7
+  ) +
+  facet_wrap(~ dataset) +
+  scale_fill_manual(
+    values = c(
+      hifiasm = "#2C7FB8",
+      rfhap   = "#F28E2B"
+    ),
+    name = "Method"
+  ) +
+  labs(
+    x = "Haplotype",
+    y = "Number of Short switch errors"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "grey90", colour = NA),
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(size = 11),
+    axis.title = element_text(size = 12),
+    legend.position = "none"
+  )
+
+p_short
+```
+
+```{r}
+library(patchwork)
+
+png("Suplementary_figure_5.png", width = 1000, height = 800, res = 120)
+(p_long | p_short) + plot_annotation(tag_levels = "A")
+dev.off()
+```
+
