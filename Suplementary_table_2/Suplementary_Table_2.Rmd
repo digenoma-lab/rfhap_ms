@@ -1,0 +1,103 @@
+---
+title: "runtimes"
+author: "damigonzalez"
+date: "2025-12-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readxl)
+library(dplyr)
+library(tidyr)
+
+raw <- read_excel("runtimes_rfhap.xlsx")
+raw$...3 =NULL
+raw$...6 = NULL
+raw
+
+```
+
+
+```{r cars}
+library(gt)
+
+
+gt_tbl <- gt(raw) |>
+  fmt_missing(
+    columns = everything(),   # o un vector de nombres/posiciones de columnas concretas
+    missing_text = ""         # cadena vacía para que no se muestre nada
+  ) |>
+  tab_header(
+    title = md("**Computational resource usage**"),
+    subtitle = "RFHap vs Hifiasm Trio"
+  ) |>
+  opt_all_caps(FALSE) |>
+  opt_table_outline() |>
+  opt_vertical_padding(scale = 1.1) |>
+  tab_options(
+    table.font.color = "black",
+    table.font.size = px(10),
+    heading.title.font.size = px(14),
+    heading.subtitle.font.size = px(11)
+  ) %>%
+  cols_label(
+    `...4` = "",
+    `...7` = "",
+    `...9` = ""
+  )
+
+gt_tbl
+
+
+
+```
+```{r}
+library(gt)
+library(dplyr)
+
+gt_tbl <- raw %>%
+  # quitar filas totalmente vacías antes de gt
+  filter(!if_all(everything(), ~ is.na(.) | trimws(as.character(.)) == "")) %>%
+
+  gt() %>%
+  fmt_missing(
+    columns = everything(),
+    missing_text = ""
+  ) %>%
+  tab_header(
+    title = md("**Computational resource usage**"),
+    subtitle = "RFHap vs Hifiasm Trio"
+  ) %>%
+  opt_table_font(font = list("Arial")) %>%   # opcional según tu versión de gt
+  tab_options(
+    table.font.color = "black",
+    table.font.size = px(9),
+    heading.title.font.size = px(11),
+    heading.subtitle.font.size = px(9),
+    column_labels.font.size = px(9),
+    data_row.padding = px(3),
+    table.border.top.width = px(1),
+    table.border.bottom.width = px(1),
+    table.border.left.width = px(0),
+    table.border.right.width = px(0),
+    heading.border.bottom.width = px(1),
+    column_labels.border.bottom.width = px(1)
+  ) %>%
+  opt_all_caps(FALSE) %>%
+  cols_label(
+    `...4` = "\u00A0",
+    `...7` = "\u00A0",
+    `...9` = "\u00A0"
+  )
+
+gt_tbl
+
+
+```
+
+
+
+
+
+
+
