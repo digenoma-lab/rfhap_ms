@@ -1,0 +1,94 @@
+---
+title: "plot.Rmd"
+output: html_document
+date: "2025-12-22"
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+
+```{r cars}
+RM = read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/repeat_masker_intersection/all_repeat_intersection.bed", sep = "\t", header =TRUE, col.names = c("chrom","start","end","repeat_name","score", "strand","repeat_class","repeat_family","divergence",	"rm_id", "count","dataset",	"method"
+))
+head(RM)
+```
+
+```{r}
+sum_repeats <- RM %>%
+  mutate(repeat_group = repeat_class) %>%
+  group_by(dataset, method, repeat_group) %>%
+  summarise(total_count = sum(count, na.rm = TRUE), .groups = "drop") %>%
+  select(repeat_group, total_count, dataset, method) %>%
+  filter(total_count > 20) %>% filter(repeat_group!= "Unknown") %>% filter(repeat_group!= "Beta") 
+sum_repeats
+```
+
+```{r}
+SD= read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/sd_intersection/all_sd_intersection.bed", sep ="\t", header= TRUE)
+head(SD)
+```
+
+```{r}
+sum_sd <- SD %>%
+  group_by(dataset, method) %>%
+  summarise(total_count = sum(count, na.rm = TRUE), .groups = "drop") 
+sum_sd$repeat_group = "SD"
+
+sum_sd = sum_sd %>% select(repeat_group , total_count, dataset , method)
+sum_sd
+```
+```{r}
+final = rbind(sum_repeats, sum_sd)
+```
+
+
+```{r}
+p <- ggplot(sum_repeats, aes(x = total_count, y = repeat_group, fill = repeat_group)) +
+  geom_col() +
+  facet_grid(
+    rows = vars(method),
+    cols = vars(dataset)
+  ) +
+  labs(
+    x = "Number of error regions overlapping repeats",
+    y = "Repeat group",
+
+  ) +
+  theme_classic() +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.4),
+    panel.spacing.y = unit(0.6, "lines"), , legend.position= "none"
+  )
+
+p
+```
+
+```{r}
+png("errors_intersection.png", width = 2000, height = 1000, res = 270)
+p
+dev.off()
+
+```
+
+```{r}
+p_sd <- ggplot(
+  sum_sd,
+  aes(x = dataset, y = total_count, fill = dataset)
+) +
+  geom_col(width = 0.7) +
+  facet_wrap(~ method) +
+  labs(
+    x = "Dataset",
+    y = "Number of SD regions",
+    fill = "Dataset"
+  ) +
+  theme_classic()
+
+p_sd
+
+```
+
