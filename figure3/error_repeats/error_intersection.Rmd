@@ -66,14 +66,6 @@ p <- ggplot(sum_repeats, aes(x = total_count, y = repeat_group, fill = repeat_gr
 
 p
 ```
-
-```{r}
-png("errors_intersection.png", width = 2000, height = 1000, res = 270)
-p
-dev.off()
-
-```
-
 ```{r}
 p_sd <- ggplot(
   sum_sd,
@@ -83,12 +75,20 @@ p_sd <- ggplot(
   facet_wrap(~ method) +
   labs(
     x = "Dataset",
-    y = "Number of SD regions",
-    fill = "Dataset"
+    y = "Number of SD regions"
   ) +
-  theme_classic()
+  theme_classic() + theme(legend.position = "none")
 
 p_sd
 
 ```
+
+```{r}
+png("errors_intersection.png", width = 3000, height = 1000, res = 270)
+(p | p_sd ) + plot_annotation(tag_level = "A")
+dev.off()
+
+```
+
+
 
