@@ -110,10 +110,10 @@ n50 = ggplot(
   theme_bw() +
   labs(
     x = "Assembly",
-    y = "N50 (Mb)",
+    y = "NG50 (Mb)",
     color = "Method",
     shape = "Metric",
-    title = "N50 comparison by assembly, method, and dataset"
+    title = "NG50 comparison by assembly, method, and dataset"
   ) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1), title = element_text(size = 10), legend.position = "bottom"
