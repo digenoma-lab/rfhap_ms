@@ -199,6 +199,52 @@ p_dend <- ggplot() +
 p_dend
 ```
 
+```{r}
+comp <- read.table(
+  "/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/Eval_dami/Eval-RF-hap/new_rfhap_datasets/HG01109/rfhap/result/merqury/merqury_result.completeness.stats",
+  header = FALSE,
+  stringsAsFactors = FALSE
+)
+
+colnames(comp) <- c(
+  "hap", "source", "observed", "total", "percent"
+)
+
+```
+
+```{r}
+hapmer_df <- comp %>% filter(hap != "both") %>%
+  filter(str_detect(source, "hapmer")) %>%
+  mutate(
+    parent = case_when(
+      str_detect(source, "dad") ~ "dad.hapmer",
+      str_detect(source, "mom") ~ "mom.hapmer"
+    ),
+    hap = case_when(
+      hap == "hapA.ont.bp.p_ctg" ~ "hapA",
+      hap == "hapB.ont.bp.p_ctg" ~ "hapB"
+    )
+  ) %>%
+  select(hap, parent, percent)
+
+hapmer_df
+```
+```{r}
+ggplot(hapmer_df, aes(x = hap, y = percent, fill = parent)) +
+  geom_col(position = "dodge", width = 0.7) +
+  labs(
+    x = "Haplotype",
+    y = "Parental hap-mer completeness (%)",
+    fill = "Parent"
+  ) +
+  scale_fill_manual(
+    values = c("Dad" = "#1F78B4", "Mom" = "#E31A1C")
+  ) +
+  theme_classic()
+
+
+```
+
 
 ```{r}
 library(patchwork)
