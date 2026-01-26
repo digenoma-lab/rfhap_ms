@@ -146,13 +146,7 @@ p_long <- ggplot(
     width = 0.7
   ) +
   facet_wrap(~ dataset) +
-  scale_fill_manual(
-    values = c(
-      hifiasm = "#2C7FB8",
-      rfhap   = "#F28E2B"
-    ),
-    name = "Method"
-  ) +
+  scale_fill_brewer(palette="Set2") +
   labs(
     x = "Haplotype",
     y = "Number of Long switch errors"
@@ -184,13 +178,7 @@ p_short <- ggplot(
     width = 0.7
   ) +
   facet_wrap(~ dataset) +
-  scale_fill_manual(
-    values = c(
-      hifiasm = "#2C7FB8",
-      rfhap   = "#F28E2B"
-    ),
-    name = "Method"
-  ) +
+  scale_fill_brewer(palette="Set2")  +
   labs(
     x = "Haplotype",
     y = "Number of Short switch errors"
