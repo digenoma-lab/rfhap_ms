@@ -47,6 +47,7 @@ completness_plot = ggplot(
     position = position_dodge(width = 0.1)) +                           
   facet_grid(. ~ Dataset) +
   scale_y_continuous(limits = c(90, 100)) +
+  scale_color_brewer(palette = "Set2") +
   labs(
     y = "Completeness (%)",
     x = NULL,
@@ -92,7 +93,8 @@ qv_plot = ggplot(
       "hapA" = 17,  # triángulo
       "hapB" = 16   # círculo
     )
-  ) +
+  ) + 
+  scale_color_brewer(palette = "Set2") +
   labs(
     y = "QV",
     x = NULL,
