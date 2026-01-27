@@ -1,0 +1,17 @@
+"file","dataset","haplotype","method","long","same","short","switchback"
+"hg002.hapA.hifiasm.switch.bed.errors","hg002","hapA","hifiasm",633,20022173,48725,1718
+"hg002.hapA.rfhap.switch.bed.errors","hg002","hapA","rfhap",259,19657562,25950,1201
+"hg002.hapB.hifiasm.switch.bed.errors","hg002","hapB","hifiasm",1091,38568332,80714,2236
+"hg002.hapB.rfhap.switch.bed.errors","hg002","hapB","rfhap",254,36249910,24152,1504
+"hg005.hapA.hifiasm.switch.bed.errors","hg005","hapA","hifiasm",215,17496527,24211,1390
+"hg005.hapA.rfhap.switch.bed.errors","hg005","hapA","rfhap",262,16700325,21861,879
+"hg005.hapB.hifiasm.switch.bed.errors","hg005","hapB","hifiasm",275,38399026,26860,1557
+"hg005.hapB.rfhap.switch.bed.errors","hg005","hapB","rfhap",205,38250935,18280,986
+"hg01109.hapA.hifiasm.switch.bed.errors","hg01109","hapA","hifiasm",1646,25495817,188878,13460
+"hg01109.hapA.rfhap.switch.bed.errors","hg01109","hapA","rfhap",669,25137931,74201,11391
+"hg01109.hapB.hifiasm.switch.bed.errors","hg01109","hapB","hifiasm",1713,39327810,198428,13101
+"hg01109.hapB.rfhap.switch.bed.errors","hg01109","hapB","rfhap",575,37036831,74302,11241
+"hg01243.hapA.hifiasm.switch.bed.errors","hg01243","hapA","hifiasm",1846,23559801,219267,13980
+"hg01243.hapA.rfhap.switch.bed.errors","hg01243","hapA","rfhap",469,23285308,62462,11290
+"hg01243.hapB.hifiasm.switch.bed.errors","hg01243","hapB","hifiasm",1831,37403800,213888,12465
+"hg01243.hapB.rfhap.switch.bed.errors","hg01243","hapB","rfhap",494,35830938,63548,9896

@@ -1,0 +1,79 @@
+---
+title: "Figure1"
+output: html_document
+date: "2025-11-27"
+---
+
+
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+library(patchwork)
+library(ggvenn)
+library(randomForest)
+library(forcats)
+library(RColorBrewer)
+
+```
+
+
+## Model Performance and feature importance
+
+model performance
+```{r }
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tibble)
+library(stringr)
+
+
+
+metrics_df = read.delim("Supplementary_Table_ModelPerformance.csv", sep = ",", header = TRUE)
+
+plot_df <- metrics_df |>
+  select(Dataset, Chemistry, Class,
+         Sensitivity, Specificity, Precision, Recall, F1, Balanced.Accuracy) |>
+  pivot_longer(
+    cols = c(Sensitivity, Specificity, Precision, Recall, F1, Balanced.Accuracy),
+    names_to = "Metric",
+    values_to = "Value"
+  ) |>
+  mutate(
+    Metric = factor(Metric,
+                    levels = c("F1","Balanced.Accuracy","Precision","Recall","Sensitivity","Specificity"))
+  )
+
+p_perf <- ggplot(plot_df, aes(x = Dataset, y = Value, shape = Class, color = Chemistry)) +
+  geom_point(size = 3, position = position_dodge(width = 0.45)) +
+  facet_wrap(~Metric, ncol = 3, scales = "fixed") +
+  scale_y_continuous(limits = c(0.98, 1.0), breaks = seq(0.98, 1.0, by = 0.005)) +
+  labs(
+    title = "RFHap model performance across datasets",
+    x = NULL,
+    y = "Metric value",
+    color = "Chemistry",
+    shape = "Class"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+p_perf
+pdf("Model_metrics.pdf", width = 6, height = 4)
+p_perf
+dev.off()
+
+
+```
+
+
+
+

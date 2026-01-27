@@ -1,0 +1,259 @@
+---
+title: "Suplementary_1"
+output: html_document
+date: "2025-12-05"
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(pheatmap)
+library(stringr)
+library(scales)
+library(tidyr)
+library(dendextend)
+library(ggdendro)
+```
+
+###Seqkit stats
+```{r cars}
+long_stats = read.delim("long_read_stats.tsv", sep = "\t" , header = TRUE)
+long_stats
+```
+
+
+```{r pressure, echo=FALSE}
+long_stats = long_stats %>% mutate(
+  num_seqs = as.numeric(gsub("," , "", num_seqs)),
+  sum_len = as.numeric(gsub("," , "", sum_len)),
+)
+
+head(long_stats)
+```
+
+```{r}
+df2 <- long_stats %>%
+  mutate(
+    Sample  = str_extract(file, "PAW\\d+"),
+    DATASET = str_extract(file, "HG\\d{3}")
+  ) %>%
+  select(-file)
+head(df2)
+```
+
+
+```{r}
+new_stats = read.delim("new_datasets_stats_for_R.tsv", sep = "\t", header= TRUE)
+new_stats
+```
+
+
+```{r}
+new_stats$file <- as.character(new_stats$file)
+
+new_stats$num_seqs <- as.numeric(gsub(",", "", new_stats$num_seqs))
+new_stats$sum_len  <- as.numeric(gsub(",", "", new_stats$sum_len))
+
+```
+
+```{r}
+new_stats$short_file <- new_stats$file %>%
+  basename() %>%
+  str_replace("_R941.*", "")
+
+new_stats$file=new_stats$short_file
+new_stats$short_file= NULL
+new_stats
+```
+
+```{r}
+df2_clean <- df2
+
+names(df2_clean)[names(df2_clean) == "Sample"]  <- "file"
+names(df2_clean)[names(df2_clean) == "DATASET"] <- "Dataset"
+
+df2_clean <- df2_clean[, c("file", "num_seqs", "sum_len", "Dataset")]
+
+df2_clean
+```
+
+
+```{r}
+final_df_stats <- rbind(new_stats, df2_clean)
+```
+
+
+```{r}
+
+cols <- c(
+  "HG002" = "#1F4E79",  # azul petróleo (principal)
+  "HG005" = "#4F81BD",  # azul más claro
+  "HG01109" = "#F2A07B",  # naranjo damasco claro
+  "HG01243" = "#D96B43"   # naranjo terracota
+)
+p1 <- ggplot(final_df_stats, aes(x = file, y = num_seqs, fill = Dataset)) +
+  geom_col() +
+  facet_wrap(~Dataset, scales = "free") +
+  theme_bw() +
+  scale_fill_manual(values = cols) +
+  scale_y_continuous(
+    labels = label_number(scale = 1e-6, suffix = "M", accuracy = 1)
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+  labs(
+    title = "Number of sequences per sample",
+    x = "Sample",
+    y = "Number of sequences (M)",
+    fill = "Dataset"
+  )
+
+p2 <- ggplot(final_df_stats, aes(x = file, y = sum_len, fill = Dataset)) +
+  geom_col() +
+  facet_wrap(~Dataset, scales = "free") +
+  theme_bw() +
+  scale_fill_manual(values = cols) +
+  scale_y_continuous(
+    labels = label_number(scale = 1e-6, suffix = "M", accuracy = 1)
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position= "none") +
+  labs(
+    title = "SumLen per Sample",
+    x = "Sample",
+    y = "Sum length (M)",
+    fill = "Dataset"
+  )
+
+p1
+p2
+```
+
+####Coverage
+```{r}
+coverage = read.delim("coverage_all.txt", header= TRUE , sep = "\t")
+coverage
+```
+
+```{r}
+library(RColorBrewer)
+
+plot_coverage=ggplot(coverage, aes(x = file, y = coverage, fill = Dataset)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Dataset, scales = "free") +
+  scale_fill_manual(values = cols) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), legend.position= "none"
+  ) +
+  labs(
+    title = "Coverage per sample",
+    x = "Sample",
+    y = "Coverage (X)"
+  )
+
+plot_coverage
+```
+
+```{r}
+ngs_results <- read.table("/mnt/beegfs/labs/DiGenomaLab/rfhap/data/latest_HG00_dataset/reads_integrity/ngscheckmate/nf-ngscheckmate/latest_dataset/NGSCheckMate.results_all.txt", 
+                          header = F, sep = "\t", check.names = F,
+                          col.names = c("sample1","match","sample2",
+                                        "correlation","depth"))
+ngs_results$sample1 <- gsub("_short", "", ngs_results$sample1)
+ngs_results$sample2 <- gsub("_short", "", ngs_results$sample2)
+```
+
+```{r}
+samples <- unique(c(ngs_results$sample1, ngs_results$sample2))
+corr_matrix <- matrix(1, nrow = length(samples), ncol = length(samples),
+                      dimnames = list(samples, samples))
+
+for (i in 1:nrow(ngs_results)) {
+  row <- ngs_results[i, ]
+  corr_matrix[row$sample1, row$sample2] <- row$correlation
+  corr_matrix[row$sample2, row$sample1] <- row$correlation
+}
+
+# --- 2) Clustering ---
+dist_matrix <- 1 - corr_matrix  
+hc <- hclust(as.dist(dist_matrix))
+```
+
+
+```{r}
+dend_data <- dendro_data(hc, type = "rectangle")
+
+p_dend <- ggplot() +
+  geom_segment(data = dend_data$segments,
+               aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_text(data = dend_data$labels,
+            aes(x = x, y = y, label = label),
+            angle = 90, hjust = 1, size = 3) +
+  scale_y_continuous(expand = expansion(mult = c(0.2, 0.05))) +
+  coord_cartesian(clip = "off") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        plot.margin = margin(t = 10, r = 10, b = 70, l = 10)) +
+  labs(y = "Distance", x = NULL)
+
+p_dend
+```
+
+```{r}
+comp <- read.table(
+  "/mnt/beegfs/labs/DiGenomaLab/rfhap/processing/Eval_dami/Eval-RF-hap/new_rfhap_datasets/HG01109/rfhap/result/merqury/merqury_result.completeness.stats",
+  header = FALSE,
+  stringsAsFactors = FALSE
+)
+
+colnames(comp) <- c(
+  "hap", "source", "observed", "total", "percent"
+)
+
+```
+
+```{r}
+hapmer_df <- comp %>% filter(hap != "both") %>%
+  filter(str_detect(source, "hapmer")) %>%
+  mutate(
+    parent = case_when(
+      str_detect(source, "dad") ~ "dad.hapmer",
+      str_detect(source, "mom") ~ "mom.hapmer"
+    ),
+    hap = case_when(
+      hap == "hapA.ont.bp.p_ctg" ~ "hapA",
+      hap == "hapB.ont.bp.p_ctg" ~ "hapB"
+    )
+  ) %>%
+  select(hap, parent, percent)
+
+hapmer_df
+```
+```{r}
+ggplot(hapmer_df, aes(x = hap, y = percent, fill = parent)) +
+  geom_col(position = "dodge", width = 0.7) +
+  labs(
+    x = "Haplotype",
+    y = "Parental hap-mer completeness (%)",
+    fill = "Parent"
+  ) +
+  scale_fill_manual(
+    values = c("Dad" = "#1F78B4", "Mom" = "#E31A1C")
+  ) +
+  theme_classic()
+
+
+```
+
+
+```{r}
+library(patchwork)
+png("Suplementary_figure_3.png", res = 200, width = 2300 , height = 2800)
+(p1 | p2 ) / (plot_coverage | p_dend) +
+  plot_annotation(tag_levels = "A")
+
+dev.off()
+```
+
+
+
