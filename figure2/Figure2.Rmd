@@ -24,11 +24,16 @@ hg00_wg = hg00_wg %>% mutate(
   N50merqury = as.numeric(gsub("\\,","",N50merqury)),
   Assembly=trimws(Assembly),
   N50gfastats=as.numeric(N50gfastats),
-  AvgBlockSize = as.numeric(gsub(",","",AvgBlockSize))
+  AvgBlockSize = as.numeric(gsub(",","",AvgBlockSize)),
+  chem = if_else(Dataset=="HG002"| Dataset == "HG005","R10","R9.4")
 ) %>%
   mutate(
     SwitchErrorMerqury=as.numeric(gsub("%","",SwitchErrorMerqury))
   ) %>% filter(Method != "TrioBinning")
+
+#stats for the paper
+hg00_wg  %>% group_by(Method,chem) %>% summarise(NG50_mean=mean(N50gfastats), NG50_merqury=mean(N50merqury),swithc_error=mean(SwitchErrorMerqury))
+
 ```
 
 ####Errors

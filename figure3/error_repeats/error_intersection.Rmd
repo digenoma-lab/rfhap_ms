@@ -12,7 +12,7 @@ library(tidyr)
 
 
 ```{r cars}
-RM = read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/repeat_masker_intersection/all_repeat_intersection.bed", sep = "\t", header =TRUE, col.names = c("chrom","start","end","repeat_name","score", "strand","repeat_class","repeat_family","divergence",	"rm_id", "count","dataset",	"method"
+RM = read.delim("all_repeat_intersection.bed", sep = "\t", header =TRUE, col.names = c("chrom","start","end","repeat_name","score", "strand","repeat_class","repeat_family","divergence",	"rm_id", "count","dataset",	"method"
 ))
 head(RM)
 ```
@@ -28,7 +28,7 @@ sum_repeats
 ```
 
 ```{r}
-SD= read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/sd_intersection/all_sd_intersection.bed", sep ="\t", header= TRUE)
+SD= read.delim("all_sd_intersection.bed", sep ="\t", header= TRUE)
 head(SD)
 ```
 
