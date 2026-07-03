@@ -1,0 +1,6 @@
+pattern	reads	percent	column
+All three agree	411000	79.5700506847671	1
+Trio binning = RFHap only	62290	12.0594123045113	2
+Trio binning = Hifiasm only	22699	4.39455129073851	3
+Hifiasm = RFHap only	8498	1.64522211853808	4
+All different	12039	2.33076360144504	5

@@ -1,0 +1,9 @@
+dataset	method	total_count
+hg002	hifiasm	842
+hg002	rfhap	749
+hg005	hifiasm	666
+hg005	rfhap	638
+hg01109	hifiasm	2584
+hg01109	rfhap	3531
+hg01243	hifiasm	2476
+hg01243	rfhap	2715

@@ -1,0 +1,630 @@
+---
+title: "create_tables.Rmd"
+output: html_document
+date: "2026-06-30"
+---
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(grid)
+library(gridExtra)
+library(gtable)
+library(data.table)
+library(VennDiagram)
+
+HG002_rfhap <- readRDS("HG002_rfhap_final.rds")
+HG002_yak   <- readRDS("hg002_triobin_joined_recoded.rds")
+```
+
+```{r}
+rfhap_counts <- HG002_rfhap %>%
+  count(class = rfhap, name = "count") %>%
+  complete(
+    class = c("A", "B", "U"),
+    fill = list(count = 0)
+  )
+
+rfhap_counts
+```
+
+```{r}
+yak_counts <- HG002_yak %>%
+  select(k24, k27, k30, k33) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "kmer",
+    values_to = "class"
+  ) %>%
+  count(kmer, class, name = "count") %>%
+  complete(
+    kmer = c("k24", "k27", "k30", "k33"),
+    class = c("A", "B", "U"),
+    fill = list(count = 0)
+  )
+
+yak_counts
+```
+```{r}
+yak_long <- yak_counts %>%
+  mutate(
+    method = recode(
+      kmer,
+      k24 = "k = 24",
+      k27 = "k = 27",
+      k30 = "k = 30",
+      k33 = "k = 33"
+    )
+  ) %>%
+  select(method, class, count)
+
+rfhap_long <- rfhap_counts %>%
+  mutate(method = "RFhap") %>%
+  select(method, class, count)
+```
+
+```{r}
+comparison <- bind_rows(rfhap_long, yak_long) %>%
+  mutate(
+    method = factor(
+      method,
+      levels = c("RFhap", "k = 24", "k = 27", "k = 30", "k = 33")
+    ),
+    class = factor(
+      class,
+      levels = c("A", "B", "U")
+    )
+  ) %>%
+  group_by(method) %>%
+  mutate(proportion = count / sum(count)) %>%
+  ungroup()
+
+comparison
+```
+```{r}
+get_counts <- function(method_name) {
+  comparison %>%
+    filter(method == method_name) %>%
+    arrange(class) %>%
+    pull(count)
+}
+
+rf  <- get_counts("RFhap")
+k24 <- get_counts("k = 24")
+k27 <- get_counts("k = 27")
+k30 <- get_counts("k = 30")
+k33 <- get_counts("k = 33")
+```
+
+```{r}
+table_data <- data.frame(
+  rfhap_class = c("A", "B", "U"),
+  rfhap_count = rf,
+
+  k24_class = c("A", "B", "U"),
+  k24_count = k24,
+
+  k27_class = c("A", "B", "U"),
+  k27_count = k27,
+
+  k30_class = c("A", "B", "U"),
+  k30_count = k30,
+
+  k33_class = c("A", "B", "U"),
+  k33_count = k33
+)
+
+table_data
+```
+```{r}
+display_data <- table_data
+display_data
+```
+
+```{r}
+names(display_data) <- rep(c("Class", "Read count"), 5)
+
+count_positions <- seq(2, 10, by = 2)
+
+display_data[count_positions] <- lapply(
+  display_data[count_positions],
+  format,
+  big.mark = ",",
+  scientific = FALSE,
+  trim = TRUE
+)
+```
+
+```{r}
+table_theme <- ttheme_minimal(
+  base_size = 10,
+  core = list(
+    fg_params = list(col = "#222222"),
+    bg_params = list(
+      fill = "white",
+      col = "#C4C4C4",
+      lwd = 0.65
+    )
+  ),
+  colhead = list(
+    fg_params = list(
+      fontface = "bold",
+      col = "#222222"
+    ),
+    bg_params = list(
+      fill = "#E8E8E8",
+      col = "#C4C4C4",
+      lwd = 0.65
+    )
+  )
+)
+```
+
+```{r}
+table_grob <- tableGrob(
+  display_data,
+  rows = NULL,
+  theme = table_theme
+)
+
+table_grob$widths <- unit(
+  rep(c(0.62, 1.18), 5),
+  "in"
+)
+
+table_grob$heights <- unit(
+  rep(0.31, 4),
+  "in"
+)
+```
+
+```{r}
+for (position in c(2, 5, 8, 11)) {
+  table_grob <- gtable_add_cols(
+    table_grob,
+    unit(0.16, "in"),
+    pos = position
+  )
+}
+```
+
+```{r}
+table_grob <- gtable_add_rows(
+  table_grob,
+  unit(0.36, "in"),
+  pos = 0
+)
+
+titles <- c(
+  "RFhap",
+  "k = 24",
+  "k = 27",
+  "k = 30",
+  "k = 33"
+)
+
+starts <- c(1, 4, 7, 10, 13)
+```
+
+```{r}
+for (i in seq_along(titles)) {
+
+  heading <- grobTree(
+    rectGrob(
+      gp = gpar(
+        fill = "#3F3F3F",
+        col = "#3F3F3F"
+      )
+    ),
+    textGrob(
+      titles[i],
+      gp = gpar(
+        col = "white",
+        fontface = "bold",
+        fontsize = 10.5
+      )
+    )
+  )
+
+  table_grob <- gtable_add_grob(
+    table_grob,
+    heading,
+    t = 1,
+    l = starts[i],
+    r = starts[i] + 1,
+    clip = "on"
+  )
+}
+```
+
+```{r}
+aligned_tables <- gtable_add_cols(
+  table_grob,
+  unit(0.98, "in"),
+  pos = 0
+)
+
+aligned_tables <- gtable_add_cols(
+  aligned_tables,
+  unit(0.38, "in"),
+  pos = ncol(aligned_tables)
+)
+
+panel_B <- gtable_add_rows(
+  aligned_tables,
+  unit(0.22, "in"),
+  pos = 0
+)
+
+panel_B <- gtable_add_grob(
+  panel_B,
+  textGrob(
+    "B",
+    x = unit(0.01, "npc"),
+    hjust = 0,
+    gp = gpar(
+      fontface = "bold",
+      fontsize = 14
+    )
+  ),
+  t = 1,
+  l = 1,
+  r = ncol(panel_B)
+)
+```
+
+```{r}
+p <- ggplot(
+  comparison,
+  aes(
+    x = method,
+    y = proportion,
+    fill = class
+  )
+) +
+  geom_col(
+    width = 0.72,
+    color = "black",
+    linewidth = 0.35
+  ) +
+  geom_text(
+    aes(
+      label = ifelse(
+        proportion > 0,
+        scales::percent(proportion, accuracy = 0.1),
+        ""
+      )
+    ),
+    position = position_stack(vjust = 0.5),
+    color = "white",
+    fontface = "bold",
+    size = 3.5
+  ) +
+  scale_fill_manual(
+    values = c(
+      A = "#F8766D",
+      B = "#00BFC4",
+      U = "#666666"
+    ),
+    breaks = c("A", "B", "U"),
+    name = "Class",
+    drop = FALSE
+  ) +
+  scale_y_continuous(
+    labels = scales::percent,
+    breaks = seq(0, 1, 0.25),
+    limits = c(0, 1),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  labs(
+    x = NULL,
+    y = "Proportion of classified reads"
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    axis.text.x = element_text(
+      color = "black",
+      face = "bold",
+      size = 11,
+      margin = margin(t = 6)
+    ),
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.y = element_text(color = "black"),
+    axis.title.y = element_text(face = "bold"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(5.5, 5.5, 2, 5.5)
+  )
+```
+
+```{r}
+panel_A <- arrangeGrob(
+  textGrob(
+    "A",
+    x = unit(0.01, "npc"),
+    hjust = 0,
+    gp = gpar(
+      fontface = "bold",
+      fontsize = 14
+    )
+  ),
+  ggplotGrob(p),
+  ncol = 1,
+  heights = unit(
+    c(0.24, 4.75),
+    "in"
+  )
+)
+```
+
+```{r}
+grid.newpage()
+
+grid.draw(
+  arrangeGrob(
+    panel_A,
+    panel_B,
+    ncol = 1,
+    heights = c(4.99, 1.82)
+  )
+)
+```
+
+```{r}
+dt <- HG002_rfhap %>%
+  select(read_id, rfhap) %>%
+  inner_join(
+    HG002_yak %>%
+      select(read_id, k24, k27, k30, k33),
+    by = "read_id"
+  )
+
+DT <- data.table::as.data.table(dt)
+```
+
+```{r}
+methods <- c("rfhap", "k24", "k27", "k30", "k33")
+bits <- c(16L, 8L, 4L, 2L, 1L)
+```
+
+```{r}
+make_patterns <- function(class_value) {
+
+  patterns <- DT[, .N, by = .(
+    pattern =
+      16L * (rfhap == class_value) +
+       8L * (k24   == class_value) +
+       4L * (k27   == class_value) +
+       2L * (k30   == class_value) +
+       1L * (k33   == class_value)
+  )]
+
+  for (i in seq_along(methods)) {
+    data.table::set(
+      patterns,
+      j = methods[i],
+      value = bitwAnd(
+        patterns$pattern,
+        bits[i]
+      ) != 0L
+    )
+  }
+
+  patterns[]
+}
+```
+
+```{r}
+intersection_count <- function(patterns, method_indices) {
+
+  selected_methods <- methods[method_indices]
+
+  selected_rows <- Reduce(
+    `&`,
+    patterns[, ..selected_methods]
+  )
+
+  sum(patterns$N[selected_rows])
+}
+```
+
+```{r}
+make_venn_arguments <- function(patterns) {
+
+  arguments <- list()
+
+  # Tamaño de cada conjunto
+  for (i in seq_along(methods)) {
+    arguments[[paste0("area", i)]] <-
+      intersection_count(patterns, i)
+  }
+
+  # Intersecciones de 2, 3, 4 y 5 conjuntos
+  for (intersection_order in 2:5) {
+
+    combinations <- combn(
+      1:5,
+      intersection_order,
+      simplify = FALSE
+    )
+
+    for (indices in combinations) {
+
+      argument_name <- paste0(
+        "n",
+        paste(indices, collapse = "")
+      )
+
+      arguments[[argument_name]] <-
+        intersection_count(patterns, indices)
+    }
+  }
+
+  arguments
+}
+```
+
+```{r}
+method_fills <- c(
+  "#9ECAE1", # RFhap
+  "#A1DAB4", # k24
+  "#FDDC9A", # k27
+  "#F4B183", # k30
+  "#E7B6D5"  # k33
+)
+```
+
+```{r}
+make_classic_venn <- function(class_value) {
+
+  patterns <- make_patterns(class_value)
+  venn_args <- make_venn_arguments(patterns)
+
+  venn_glist <- do.call(
+    VennDiagram::draw.quintuple.venn,
+    c(
+      venn_args,
+      list(
+        category = rep("", 5),
+
+        fill = method_fills,
+        alpha = rep(0.55, 5),
+        col = rep("#555555", 5),
+        lwd = rep(1.1, 5),
+        lty = rep("solid", 5),
+
+        label.col = rep("#202020", 31),
+        cex = rep(0.48, 31),
+        fontface = rep("plain", 31),
+        fontfamily = rep("sans", 31),
+
+        cat.cex = rep(0, 5),
+        cat.col = rep(NA, 5),
+
+        margin = 0.08,
+        ind = FALSE
+      )
+    )
+  )
+
+  venn_body <- gTree(children = venn_glist)
+
+  arrangeGrob(
+    venn_body,
+    top = textGrob(
+      paste("Class", class_value),
+      gp = gpar(
+        fontface = "bold",
+        fontsize = 13
+      )
+    )
+  )
+}
+```
+
+```{r}
+venn_A <- make_classic_venn("A")
+gc()
+
+venn_B <- make_classic_venn("B")
+gc()
+
+venn_U <- make_classic_venn("U")
+gc()
+```
+```{r}
+venn_legend <- legendGrob(
+  labels = c(
+    "RFhap",
+    "k = 24",
+    "k = 27",
+    "k = 30",
+    "k = 33"
+  ),
+  pch = 15,
+  gp = gpar(
+    col = method_fills,
+    fill = method_fills,
+    fontsize = 10
+  ),
+  hgap = unit(0.45, "cm"),
+  nrow = 1
+)
+```
+
+```{r}
+venn_row <- arrangeGrob(
+  venn_A,
+  venn_B,
+  venn_U,
+  nrow = 1,
+  widths = c(1, 1, 1)
+)
+```
+
+```{r}
+panel_C <- arrangeGrob(
+  textGrob(
+    "C",
+    x = unit(0.01, "npc"),
+    hjust = 0,
+    gp = gpar(
+      fontface = "bold",
+      fontsize = 14
+    )
+  ),
+  venn_row,
+  venn_legend,
+  ncol = 1,
+  heights = unit(
+    c(0.24, 4.1, 0.35),
+    "in"
+  )
+)
+```
+
+```{r}
+final_figure <- arrangeGrob(
+  panel_A,
+  nullGrob(),
+  panel_B,
+  nullGrob(),
+  panel_C,
+  ncol = 1,
+  heights = unit(
+    c(4.99, 0.16, 1.82, 0.20, 4.69),
+    "in"
+  )
+)
+
+grid.newpage()
+grid.draw(final_figure)
+```
+```{r}
+pdf(
+  "RFhap_Yak_complete_figure.pdf",
+  width = 11,
+  height = 11.86
+)
+
+grid.draw(final_figure)
+
+dev.off()
+```
+
+```{r}
+png(
+  "RFhap_Yak_complete_figure.png",
+  width = 11,
+  height = 11.86
+)
+
+grid.draw(final_figure)
+
+dev.off()
+```
+

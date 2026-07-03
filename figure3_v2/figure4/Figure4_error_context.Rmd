@@ -1,0 +1,214 @@
+---
+title: "Figure 4 - genomic context of long-switch errors"
+output:
+  html_document:
+    toc: true
+    code_folding: show
+date: "2026-06-28"
+---
+
+This document reconstructs the two bar-chart panels formerly included in
+Figure 3. The panels are arranged vertically so the repeat-class comparison has
+enough width for all datasets and methods.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.align = "center", dpi = 160)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+library(scales)
+
+dir.create("output/pdf", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/png", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/svg", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/data", recursive = TRUE, showWarnings = FALSE)
+
+dataset_levels <- c("hg002", "hg005", "hg01109", "hg01243")
+method_levels <- c("hifiasm", "rfhap")
+dataset_colors <- c(
+  hg002 = "#F8766D",
+  hg005 = "#7CAE00",
+  hg01109 = "#00BFC4",
+  hg01243 = "#C77CFF"
+)
+repeat_colors <- c(
+  SINE = "#F564C9",
+  Simple_repeat = "#B979F2",
+  Satellite = "#00A9F4",
+  rRNA = "#00BFC4",
+  LTR = "#00BE67",
+  Low_complexity = "#7CAE00",
+  LINE = "#D39B00",
+  DNA = "#F8766D"
+)
+
+theme_figure <- function(base_size = 12.5) {
+  theme_classic(base_size = base_size, base_family = "sans") +
+    theme(
+      axis.text = element_text(color = "#222222"),
+      strip.text = element_text(face = "bold", size = 12.5),
+      strip.background = element_rect(fill = "#F2F2F2", color = "#4D4D4D",
+                                      linewidth = 0.40),
+      panel.border = element_rect(color = "#4D4D4D", fill = NA,
+                                  linewidth = 0.40),
+      axis.line = element_blank(),
+      axis.ticks = element_line(color = "#4D4D4D", linewidth = 0.40),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(6, 8, 6, 8)
+    )
+}
+```
+
+## Summarize repeat overlaps
+
+```{r data}
+repeat_intersections <- read.delim(
+  "all_repeat_intersection.bed",
+  sep = "\t",
+  header = TRUE,
+  col.names = c("chrom", "start", "end", "repeat_name", "score", "strand",
+                "repeat_class", "repeat_family", "divergence", "rm_id",
+                "count", "dataset", "method")
+)
+
+repeat_order <- c("DNA", "LINE", "Low_complexity", "LTR", "rRNA",
+                  "Satellite", "Simple_repeat", "SINE")
+
+repeat_summary <- repeat_intersections |>
+  mutate(dataset = trimws(dataset), method = trimws(method)) |>
+  group_by(dataset, method, repeat_group = repeat_class) |>
+  summarise(total_count = sum(count, na.rm = TRUE), .groups = "drop") |>
+  filter(total_count > 20, !repeat_group %in% c("Unknown", "Beta")) |>
+  mutate(
+    dataset = factor(dataset, levels = dataset_levels),
+    method = factor(method, levels = method_levels),
+    repeat_group = factor(repeat_group, levels = repeat_order)
+  )
+
+sd_intersections <- read.delim("all_sd_intersection.bed", sep = "\t",
+                               header = TRUE)
+
+sd_summary <- sd_intersections |>
+  group_by(dataset, method) |>
+  summarise(total_count = sum(count, na.rm = TRUE), .groups = "drop") |>
+  mutate(
+    dataset = factor(dataset, levels = dataset_levels),
+    method = factor(method, levels = method_levels)
+  )
+
+write.table(repeat_summary, "output/data/repeat_overlap_summary.tsv",
+            sep = "\t", quote = FALSE, row.names = FALSE)
+write.table(sd_summary, "output/data/segmental_duplication_summary.tsv",
+            sep = "\t", quote = FALSE, row.names = FALSE)
+```
+
+## Panel A: repetitive elements
+
+```{r panel-a, fig.width=13.5, fig.height=5.4}
+p_repeat <- ggplot(repeat_summary,
+                   aes(x = total_count, y = repeat_group, fill = repeat_group)) +
+  geom_col(width = 0.72) +
+  facet_grid(
+    rows = vars(method),
+    cols = vars(dataset),
+    labeller = labeller(
+      method = c(hifiasm = "Hifiasm", rfhap = "RFhap"),
+      dataset = c(hg002 = "HG002", hg005 = "HG005",
+                  hg01109 = "HG01109", hg01243 = "HG01243")
+    )
+  ) +
+  scale_fill_manual(values = repeat_colors, drop = FALSE) +
+  scale_y_discrete(labels = c(
+    SINE = "SINE",
+    Simple_repeat = "Simple repeat",
+    Satellite = "Satellite",
+    rRNA = "rRNA",
+    LTR = "LTR",
+    Low_complexity = "Low complexity",
+    LINE = "LINE",
+    DNA = "DNA"
+  )) +
+  scale_x_continuous(labels = label_comma(), expand = expansion(mult = c(0, 0.06))) +
+  labs(x = "Long-switch error regions overlapping repeats", y = "Repeat class") +
+  theme_figure(12.5) +
+  theme(
+    legend.position = "none",
+    panel.spacing.x = grid::unit(0.8, "lines"),
+    panel.spacing.y = grid::unit(0.7, "lines"),
+    axis.text.y = element_text(size = 11.2),
+    axis.text.x = element_text(size = 10.5),
+    axis.title = element_text(size = 12.5)
+  )
+
+p_repeat
+```
+
+## Panel B: segmental duplications
+
+```{r panel-b, fig.width=13.5, fig.height=3.4}
+p_sd <- ggplot(sd_summary,
+               aes(x = dataset, y = total_count, fill = dataset)) +
+  geom_col(width = 0.62) +
+  geom_text(aes(label = comma(total_count)), vjust = -0.28, size = 3.7) +
+  facet_wrap(
+    ~ method,
+    nrow = 1,
+    labeller = labeller(method = c(hifiasm = "Hifiasm", rfhap = "RFhap"))
+  ) +
+  scale_fill_manual(values = dataset_colors, drop = FALSE) +
+  scale_x_discrete(labels = c(hg002 = "HG002", hg005 = "HG005",
+                              hg01109 = "HG01109", hg01243 = "HG01243")) +
+  scale_y_continuous(labels = label_comma(),
+                     expand = expansion(mult = c(0, 0.13))) +
+  labs(x = "Dataset",
+       y = "Long-switch error regions overlapping\nsegmental duplications") +
+  theme_figure(12.5) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 10.3, angle = 30, hjust = 1, vjust = 1),
+    axis.text.y = element_text(size = 10.5),
+    axis.title = element_text(size = 12.5)
+  )
+
+p_sd
+```
+
+## Complete Figure 4
+
+```{r figure4, fig.width=15.5, fig.height=4.7}
+figure_4 <- (p_repeat | p_sd) +
+  plot_layout(widths = c(1.70, 1)) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(face = "bold", size = 19),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(7, 7, 7, 7)
+    )
+  )
+
+figure_4 <- figure_4 &
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA)
+  )
+
+figure_4
+
+ggsave("output/pdf/Figure4_error_context.pdf", figure_4,
+       width = 15.5, height = 4.7, units = "in", device = cairo_pdf,
+       bg = "white")
+ggsave("output/png/Figure4_error_context.png", figure_4,
+       width = 15.5, height = 4.7, units = "in", dpi = 300,
+       bg = "white")
+ggsave("output/svg/Figure4_error_context.svg", figure_4,
+       width = 15.5, height = 4.7, units = "in", device = svg,
+       bg = "white")
+```
+
+```{r session-info}
+sessionInfo()
+```

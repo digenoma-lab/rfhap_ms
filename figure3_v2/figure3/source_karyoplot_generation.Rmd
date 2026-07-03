@@ -1,0 +1,322 @@
+
+```{r setup, include=FALSE}
+library(karyoploteR)
+library(dplyr)
+library(GenomicRanges)
+
+```
+
+#Chromosome tracks
+```{r pressure, echo=FALSE}
+fai_t2r = read.delim("chm13v2.0.fa.fai", header = FALSE)
+fai_t2r = fai_t2r %>% select(V1,V2) %>% filter(V1 != "chrY") %>% filter(V1 != "chrX") %>% filter(V1 != "chrM")
+
+colnames(fai_t2r) = c("chr", "lenght")
+fai_t2r
+```
+
+```{r}
+genome_gr <- GRanges(seqnames = fai_t2r$chr,
+                     ranges = IRanges(start = 1, end = fai_t2r$lenght))
+genome_gr
+```
+
+
+
+##Cytobands
+
+```{r}
+cyto_df <- read.table(
+  "/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/annot/chm13v2.0_cytobands_allchrs.bed",
+  sep = "\t",
+  header = FALSE,
+  stringsAsFactors = FALSE
+)
+
+colnames(cyto_df) <- c("seqnames", "start", "end", "name", "gieStain")
+
+cyto_df$start <- cyto_df$start + 1
+
+cyto_gr <- makeGRangesFromDataFrame(
+  cyto_df,
+  keep.extra.columns = TRUE
+)
+```
+
+
+```{r}
+rfhap_hapA <- read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/files_for_karyoplot/hg002.hapA.rfhap.long_errors.bed", header = FALSE)
+colnames(rfhap_hapA) <- c("chr", "start", "end")
+
+rfhap_hapA
+
+rfhap_hapB <- read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/files_for_karyoplot/hg002.hapB.rfhap.long_errors.bed", header = FALSE)
+colnames(rfhap_hapB) <- c("chr", "start", "end")
+
+rfhap_hapB
+```
+
+```{r}
+rfhap_hapA_gr <- GRanges(
+  seqnames = rfhap_hapA$chr,
+  ranges   = IRanges(start = rfhap_hapA$start + 1,
+                     end   = rfhap_hapA$end)
+)
+
+rfhap_hapB_gr <- GRanges(
+  seqnames = rfhap_hapB$chr,
+  ranges   = IRanges(start = rfhap_hapB$start + 1,
+                     end   = rfhap_hapB$end)
+)
+```
+
+
+```{r}
+hifiasm_hapA <- read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/files_for_karyoplot/hg002.hapA.hifiasm.long_errors.bed", header = FALSE)
+colnames(hifiasm_hapA) <- c("chr", "start", "end")
+
+hifiasm_hapA
+
+hifiasm_hapB <- read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/files_for_karyoplot/hg002.hapB.hifiasm.long_errors.bed", header = FALSE)
+colnames(hifiasm_hapB) <- c("chr", "start", "end")
+
+hifiasm_hapB
+```
+
+```{r}
+hifiasm_hapA_gr <- GRanges(
+  seqnames = hifiasm_hapA$chr,
+  ranges   = IRanges(start = hifiasm_hapA$start + 1,
+                     end   = hifiasm_hapA$end)
+)
+
+hifiasm_hapB_gr <- GRanges(
+  seqnames = hifiasm_hapB$chr,
+  ranges   = IRanges(start = hifiasm_hapB$start + 1,
+                     end   = hifiasm_hapB$end)
+)
+```
+
+
+```{r}
+telomeres <- read.delim("/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/files_for_karyoplot/chm13v2.0_telomere.bed", header = FALSE)
+colnames(telomeres) <- c("chr", "start", "end")
+
+telomeres = telomeres %>% filter(chr!="chrX")  %>% filter(chr!="chrY")
+telomeres
+```
+
+```{r}
+telomeres_gr <- GRanges(
+  seqnames = telomeres$chr,
+  ranges   = IRanges(start = telomeres$start + 1,
+                     end   = telomeres$end)
+)
+```
+
+```{r}
+centro_df <- read.table(
+  "/mnt/beegfs/labs/DiGenomaLab/rfhap/analysis/merqury_error_analysis/long_errors_bed/long_error_fastas/long_error_pafs/files_for_karyoplot/centromeros_t2t.bed",
+  sep = "\t",
+  header = FALSE,
+  stringsAsFactors = FALSE
+)
+
+colnames(centro_df) <- c(
+  "chr", "start", "end", "name",
+  "score", "strand",
+  "thickStart", "thickEnd",
+  "rgb"
+)
+```
+
+```{r}
+centro_df <- centro_df %>%
+  filter(grepl("^hor_|^dhor_", name))
+```
+
+```{r}
+centromeres_full <- centro_df %>%
+  group_by(chr) %>%
+  summarise(
+    start = min(start),
+    end   = max(end),
+    .groups = "drop"
+  )
+centromeres_full
+```
+```{r}
+centromeres_full_gr <- GRanges(
+  seqnames = centromeres_full$chr,
+  ranges   = IRanges(
+    start = centromeres_full$start,
+    end   = centromeres_full$end
+  )
+)
+```
+
+
+```{r}
+
+pp <- getDefaultPlotParams(plot.type = 2)   
+pp$ideogramheight <- 160   
+pp$data2height    <- 350
+pp$topmargin      <- 500
+pp$bottommargin   <- 180
+
+
+png("hapA_karyoplot.png", height = 2000, width = 2000, res = 150)
+
+kp <- plotKaryotype(
+  genome = genome_gr,
+  plot.type = 2,
+  chromosomes = fai_t2r$chr,
+  plot.params = pp,
+  cytobands = cyto_gr
+)
+
+kpSegments(
+  kp,
+  chr = as.character(seqnames(rfhap_hapA_gr)),
+  x0  = start(rfhap_hapA_gr),
+  x1  = start(rfhap_hapA_gr),
+  data.panel = 2,
+  y0  = 0.52,
+  y1  = 0.995,
+  col = "#FC8D62",
+  lwd = 1
+)
+
+kpSegments(
+  kp,
+  chr = as.character(seqnames(hifiasm_hapA_gr)),
+  x0  = start(hifiasm_hapA_gr),
+  x1  = start(hifiasm_hapA_gr),
+  data.panel = 2,
+  y0  = 0.005,
+  y1  = 0.48,
+  col = "#66C2A5",
+  lwd = 1
+)
+
+kpSegments(
+  kp,
+  chr = as.character(seqnames(telomeres_gr)),
+  x0  = start(telomeres_gr),
+  x1  = start(telomeres_gr),
+  data.panel = 1,
+  y0  = 0.005,
+  y1  = 0.48,
+  col = "blue",
+  lwd = 2
+)
+
+
+kpPlotRegions(
+  kp,
+  data = centromeres_full_gr,
+  data.panel = 1,   # o data.panel = 1
+  #r0 = 1.02,                 # justo encima del cromosoma
+  #r1 = 1.15,                 # altura del rectángulo
+  col = adjustcolor("#FFD92F", alpha.f = 0.5),
+  border = "#FFD92F"
+)
+
+
+kpAddMainTitle(
+  kp,
+  "Maternal Haplotype",
+  cex = 0.5,
+  col = "black"
+)
+
+dev.off()
+```
+
+```{r}
+pp <- getDefaultPlotParams(plot.type = 2)   
+pp$ideogramheight <- 160   
+pp$data2height    <- 350
+pp$topmargin      <- 500
+pp$bottommargin   <- 180
+
+png("hapB_karyoplot.png", height = 2000, width = 2000, res = 150)
+kp <- plotKaryotype(
+  genome = genome_gr,
+  plot.type = 2,
+  chromosomes = fai_t2r$chr,
+  plot.params = pp,
+  cytobands = cyto_gr
+)
+
+kpSegments(
+  kp,
+  chr = as.character(seqnames(rfhap_hapB_gr)),
+  x0  = start(rfhap_hapB_gr),
+  x1  = start(rfhap_hapB_gr),
+  data.panel = 2,
+  y0  = 0.52,
+  y1  = 0.995,
+  col = "#FC8D62",
+  lwd = 1
+)
+
+kpSegments(
+  kp,
+  chr = as.character(seqnames(hifiasm_hapB_gr)),
+  x0  = start(hifiasm_hapB_gr),
+  x1  = start(hifiasm_hapB_gr),
+  data.panel = 2,
+  y0  = 0.005,
+  y1  = 0.48,
+  col = "#66C2A5",
+  lwd = 1
+)
+
+kpSegments(
+  kp,
+  chr = as.character(seqnames(telomeres_gr)),
+  x0  = start(telomeres_gr),
+  x1  = start(telomeres_gr),
+  data.panel = 1,
+  y0  = 0.005,
+  y1  = 0.48,
+  col = "blue",
+  lwd = 2
+)
+
+
+kpPlotRegions(
+  kp,
+  data = centromeres_full_gr,
+  data.panel = 1,   # o data.panel = 1
+  #r0 = 1.02,                 # justo encima del cromosoma
+  #r1 = 1.15,                 # altura del rectángulo
+  col = adjustcolor("#FFD92F", alpha.f = 0.5),
+  border = "#FFD92F"
+)
+
+# --- Leyenda ---
+legend("bottom",
+       legend = c("RFHap", "Hifiasm", "Telomeres", "Centromeres"),
+       fill   = c("#FC8D62","#66C2A5", "blue", "#FFD92F"),
+       border = NA,
+       bty    = "n",
+       cex    = 0.5,
+       inset  = c(0, 0.1))
+
+kpAddMainTitle(
+  kp,
+  "Paternal Haplotype",
+  cex = 0.5,
+  col = "black"
+)
+
+dev.off()
+```
+
+```{r}
+
+```
+
+

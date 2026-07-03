@@ -1,0 +1,234 @@
+---
+title: "Supplementary Figure 4"
+subtitle: "RFhap model performance across datasets"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+date: "2026-07-03"
+---
+
+## 1. Load packages and create output directories
+
+```{r setup, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  dpi = 160
+)
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+
+dir.create("output/pdf", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/png", recursive = TRUE, showWarnings = FALSE)
+```
+
+## 2. Read model-performance data
+
+The input table must be located in the same directory as this R Markdown
+document. Sensitivity is not included because it is mathematically identical
+to recall (`TP / (TP + FN)`).
+
+```{r read-data}
+metrics_df <- read.csv(
+  "Supplementary_Table_ModelPerformance.csv",
+  check.names = TRUE
+)
+
+head(metrics_df)
+```
+
+## 3. Select and reshape the metrics
+
+The five metrics are ordered according to their final position in the figure:
+F1 score, balanced accuracy, and precision in the upper row; recall and
+specificity in the lower row.
+
+```{r reshape-data}
+metric_order <- c(
+  "F1",
+  "Balanced Accuracy",
+  "Precision",
+  "Recall",
+  "Specificity"
+)
+
+plot_df <- metrics_df |>
+  select(
+    Dataset,
+    Chemistry,
+    Class,
+    F1,
+    Balanced.Accuracy,
+    Precision,
+    Recall,
+    Specificity
+  ) |>
+  rename(`Balanced Accuracy` = Balanced.Accuracy) |>
+  pivot_longer(
+    cols = all_of(metric_order),
+    names_to = "Metric",
+    values_to = "Value"
+  ) |>
+  mutate(
+    Metric = factor(Metric, levels = metric_order)
+  )
+
+head(plot_df)
+```
+
+## 4. Define a function for the individual panels
+
+All panels use the same scale, colors, shapes, and graphical theme. Dataset
+labels are displayed only in the lower row to reduce repetition.
+
+```{r panel-function}
+make_metric_plot <- function(metric_name, show_x = FALSE) {
+
+  ggplot(
+    filter(plot_df, Metric == metric_name),
+    aes(
+      x = Dataset,
+      y = Value,
+      shape = Class,
+      color = Chemistry
+    )
+  ) +
+    geom_point(
+      size = 3,
+      position = position_dodge(width = 0.45)
+    ) +
+    scale_y_continuous(
+      breaks = seq(0.98, 1.00, by = 0.005),
+      labels = scales::label_number(accuracy = 0.001)
+    ) +
+    coord_cartesian(ylim = c(0.98, 1.00)) +
+    labs(
+      title = metric_name,
+      x = NULL,
+      y = NULL,
+      color = "Chemistry",
+      shape = "Class"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      panel.grid.minor = element_blank(),
+      axis.text.x = if (show_x) {
+        element_text(angle = 30, hjust = 1)
+      } else {
+        element_blank()
+      },
+      axis.ticks.x = if (show_x) {
+        element_line()
+      } else {
+        element_blank()
+      },
+      plot.title = element_text(
+        face = "bold",
+        hjust = 0.5,
+        size = 12
+      ),
+      plot.margin = margin(6, 7, 6, 7)
+    )
+}
+```
+
+## 5. Build the five metric panels
+
+```{r build-panels}
+p_f1 <- make_metric_plot("F1")
+p_balanced <- make_metric_plot("Balanced Accuracy")
+p_precision <- make_metric_plot("Precision")
+p_recall <- make_metric_plot("Recall", show_x = TRUE)
+p_specificity <- make_metric_plot("Specificity", show_x = TRUE)
+```
+
+## 6. Arrange the panels
+
+The layout uses twelve equal columns. Each panel occupies four columns. The
+lower row is shifted slightly to the left to achieve better optical balance.
+
+```{r arrange-panels}
+figure_design <- "
+AAAABBBBCCCC
+#DDDDEEEE###
+"
+
+plots_grid <-
+  p_f1 +
+  p_balanced +
+  p_precision +
+  p_recall +
+  p_specificity +
+  plot_layout(
+    design = figure_design,
+    guides = "collect",
+    heights = c(1, 1)
+  ) &
+  theme(legend.position = "bottom")
+
+shared_y_label <- wrap_elements(
+  full = grid::textGrob(
+    "Metric value",
+    rot = 90,
+    gp = grid::gpar(fontsize = 12)
+  )
+)
+
+p_perf <-
+  shared_y_label +
+  plots_grid +
+  plot_layout(widths = c(0.035, 1)) +
+  plot_annotation(
+    title = "RFhap model performance across datasets",
+    theme = theme(
+      plot.title = element_text(
+        face = "bold",
+        hjust = 0.5,
+        size = 16
+      )
+    )
+  )
+```
+
+## 7. Display Supplementary Figure 4
+
+```{r supplementary-figure-4, echo=FALSE, fig.width=9, fig.height=6.8, out.width="100%"}
+p_perf
+```
+
+## 8. Export PDF and PNG versions
+
+```{r export-figure}
+ggsave(
+  filename = "output/pdf/Supplementary_Figure_4.pdf",
+  plot = p_perf,
+  width = 9,
+  height = 6.8,
+  units = "in",
+  device = cairo_pdf,
+  bg = "white"
+)
+
+ggsave(
+  filename = "output/png/Supplementary_Figure_4.png",
+  plot = p_perf,
+  width = 9,
+  height = 6.8,
+  units = "in",
+  dpi = 400,
+  bg = "white"
+)
+```
+
+## 9. Session information
+
+```{r session-info}
+sessionInfo()
+```

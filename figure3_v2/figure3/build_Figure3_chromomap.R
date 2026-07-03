@@ -1,0 +1,105 @@
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.align = "center", dpi = 160)
+library(png)
+library(grid)
+library(ggplot2)
+library(patchwork)
+
+dir.create("output/pdf", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/png", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/svg", recursive = TRUE, showWarnings = FALSE)
+
+prepare_track_map <- function(path, mirror = FALSE, remove_legend = FALSE) {
+  img <- readPNG(path)
+  if (length(dim(img)) != 3 || dim(img)[3] < 3) {
+    stop("Expected an RGB or RGBA PNG: ", path)
+  }
+
+  rgb <- img[, , 1:3, drop = FALSE]
+  if (dim(img)[3] == 4) {
+    alpha <- img[, , 4]
+    for (channel in seq_len(3)) {
+      rgb[, , channel] <- rgb[, , channel] * alpha + (1 - alpha)
+    }
+  }
+
+  # Remove the original legend from the paternal raster; the replacement below
+  # is vector-based and shared by both haplotypes.
+  if (remove_legend) rgb[1450:1710, 920:1260, ] <- 1
+
+  # Common crop preserves identical vertical coordinates in both maps.
+  rgb <- rgb[55:1965, 145:1550, , drop = FALSE]
+  if (mirror) rgb <- rgb[, dim(rgb)[2]:1, , drop = FALSE]
+  rgb
+}
+
+maternal_map <- prepare_track_map("hapA_karyoplot.png", mirror = TRUE)
+paternal_map <- prepare_track_map("hapB_karyoplot.png", remove_legend = TRUE)
+
+# Track centers in the original 2,000 px karyoploteR canvas. The spacing is
+# fixed by the shared plot parameters used to generate both source maps.
+chromosome_centers <- seq(89.75, 1919.75, length.out = 22)
+chromosome_labels <- data.frame(
+  chromosome = paste0("chr", 1:22),
+  y_source = 1 - (chromosome_centers - 55) / (1965 - 55)
+) |>
+  transform(y = 0.075 + 0.875 * y_source)
+
+legend_data <- data.frame(
+  label = c("RFhap", "Hifiasm", "Telomeres", "Centromeres"),
+  color = c("#FC8D62", "#66C2A5", "#0000FF", "#FFD92F"),
+  x = c(0.30, 0.42, 0.55, 0.68)
+)
+
+figure_3 <- ggplot() +
+  annotation_custom(
+    rasterGrob(maternal_map, interpolate = TRUE,
+               width = grid::unit(1, "npc"), height = grid::unit(1, "npc")),
+    xmin = 0.015, xmax = 0.495, ymin = 0.075, ymax = 0.95
+  ) +
+  annotation_custom(
+    rasterGrob(paternal_map, interpolate = TRUE,
+               width = grid::unit(1, "npc"), height = grid::unit(1, "npc")),
+    xmin = 0.505, xmax = 0.985, ymin = 0.075, ymax = 0.95
+  ) +
+  geom_text(
+    data = chromosome_labels,
+    aes(x = 0.5, y = y, label = chromosome),
+    size = 2.8, color = "#222222"
+  ) +
+  annotate("text", x = 0.245, y = 0.985, label = "Maternal haplotype",
+           fontface = "bold", size = 4.1) +
+  annotate("text", x = 0.755, y = 0.985, label = "Paternal haplotype",
+           fontface = "bold", size = 4.1) +
+  geom_segment(
+    data = legend_data,
+    aes(x = x, xend = x + 0.018, y = 0.025, yend = 0.025, color = color),
+    linewidth = 3.2, lineend = "butt", show.legend = FALSE
+  ) +
+  geom_text(
+    data = legend_data,
+    aes(x = x + 0.024, y = 0.025, label = label),
+    hjust = 0, size = 3.4, color = "#222222"
+  ) +
+  scale_color_identity() +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE,
+                  clip = "off") +
+  theme_void(base_size = 11) +
+  theme(
+    plot.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(6, 8, 6, 8)
+  )
+
+figure_3
+
+ggsave("output/pdf/Figure3_chromomap.pdf", figure_3,
+       width = 13.5, height = 8.2, units = "in", device = cairo_pdf,
+       bg = "white")
+ggsave("output/png/Figure3_chromomap.png", figure_3,
+       width = 13.5, height = 8.2, units = "in", dpi = 300,
+       bg = "white")
+ggsave("output/svg/Figure3_chromomap.svg", figure_3,
+       width = 13.5, height = 8.2, units = "in", device = svg,
+       bg = "white")
+
+sessionInfo()
