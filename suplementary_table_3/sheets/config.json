@@ -1,0 +1,8 @@
+{
+  "datasets": ["HG002", "HG005", "HG01109", "HG01243"],
+  "rfhap_pipeline_info": "../rfhap/pipelines_rfhap_info",
+  "rfhap_assemblies": "../rfhap/assemblies",
+  "hifiasm_logs": "../hifiasm",
+  "output_dir": "outputs",
+  "workbook_name": "Supplementary_Table_3_CPU_RAM_Numbers.xlsx"
+}

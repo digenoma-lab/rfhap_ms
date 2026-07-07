@@ -1,0 +1,25 @@
+dataset	major_stage	workflow_family	workflow	substage	cpu_threads	peak_rss_gb	cpu_definition	ram_definition	row_type	source_file
+HG002	Parental databases	RFhap workflow	RFhap	TOTAL - Parental databases	80.0	15.902698516845703	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG002	Parental databases	Hifiasm-trio	Hifiasm-trio	TOTAL - Parental databases	40.0	48.812	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG002	Classification + assembly	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - Classification + assembly	358.0	278.691	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG002	Classification + assembly	Hifiasm-trio	Hifiasm-trio	TOTAL - Classification + assembly	40.0	474.603	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG005	Parental databases	RFhap workflow	RFhap	TOTAL - Parental databases	80.0	19.880779266357422	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG005	Parental databases	Hifiasm-trio	Hifiasm-trio	TOTAL - Parental databases	40.0	81.373	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG005	Classification + assembly	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - Classification + assembly	88.0	171.207	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG005	Classification + assembly	Hifiasm-trio	Hifiasm-trio	TOTAL - Classification + assembly	60.0	278.633	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG01109	Parental databases	RFhap workflow	RFhap	TOTAL - Parental databases	80.0	19.528461456298828	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG01109	Parental databases	Hifiasm-trio	Hifiasm-trio	TOTAL - Parental databases	40.0	48.806	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG01109	Classification + assembly	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - Classification + assembly	132.0	154.877	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG01109	Classification + assembly	Hifiasm-trio	Hifiasm-trio	TOTAL - Classification + assembly	60.0	277.47	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG01243	Parental databases	RFhap workflow	RFhap	TOTAL - Parental databases	80.0	18.713237762451172	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG01243	Parental databases	Hifiasm-trio	Hifiasm-trio	TOTAL - Parental databases	40.0	48.83	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG01243	Classification + assembly	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - Classification + assembly	132.0	134.473	Peak allocated CPUs (RFhap) or maximum requested threads	Maximum reported task/command RSS	stage_total	Multiple files
+HG01243	Classification + assembly	Hifiasm-trio	Hifiasm-trio	TOTAL - Classification + assembly	60.0	240.689	Maximum requested threads per standalone command	Maximum command peak RSS	stage_total	Multiple files
+HG002	End-to-end	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - end-to-end	358.0	278.691	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG002	End-to-end	Hifiasm-trio	Hifiasm-trio	TOTAL - end-to-end	40.0	474.603	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG005	End-to-end	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - end-to-end	88.0	171.207	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG005	End-to-end	Hifiasm-trio	Hifiasm-trio	TOTAL - end-to-end	60.0	278.633	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG01109	End-to-end	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - end-to-end	132.0	154.877	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG01109	End-to-end	Hifiasm-trio	Hifiasm-trio	TOTAL - end-to-end	60.0	277.47	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG01243	End-to-end	RFhap workflow	RFhap + hifiasm-ONT	TOTAL - end-to-end	132.0	134.473	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals
+HG01243	End-to-end	Hifiasm-trio	Hifiasm-trio	TOTAL - end-to-end	60.0	240.689	Maximum stage CPU/thread requirement	Maximum stage RSS	end_to_end_total	Stage totals

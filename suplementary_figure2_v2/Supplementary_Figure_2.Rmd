@@ -1,0 +1,356 @@
+---
+title: "Supplementary Figure 2 - RFhap computational resource profile"
+author: "RFhap manuscript"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    code_folding: show
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  dev = "png",
+  dpi = 150
+)
+
+required_packages <- c(
+  "dplyr", "tidyr", "readr", "stringr", "forcats",
+  "lubridate", "ggplot2", "scales", "patchwork", "cowplot", "ragg"
+)
+
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+
+if (length(missing_packages) > 0) {
+  stop(
+    "Missing R packages: ", paste(missing_packages, collapse = ", "),
+    ". Install them before rendering this document."
+  )
+}
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(readr)
+  library(stringr)
+  library(forcats)
+  library(lubridate)
+  library(ggplot2)
+  library(scales)
+  library(patchwork)
+})
+
+input_file <- file.path("data", "execution_trace_HG002.txt")
+output_dir <- "outputs"
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+if (!file.exists(input_file)) {
+  stop("Required input file was not found: ", input_file)
+}
+```
+
+## Objective
+
+This document reconstructs Supplementary Figure 2 directly from the HG002
+Nextflow execution trace. It summarizes CPU time, memory, task-level wall time,
+and disk I/O for the RFhap processes contributing at least 0.5 CPU-hours.
+
+## Parsing functions
+
+```{r parsing-functions}
+parse_duration_seconds <- function(x) {
+  x <- replace_na(as.character(x), "0s")
+  vapply(x, function(value) {
+    hits <- str_match_all(
+      str_trim(value),
+      "([0-9.]+)\\s*(ms|d|h|m|s)"
+    )[[1]]
+
+    if (nrow(hits) == 0) {
+      return(suppressWarnings(as.numeric(value)))
+    }
+
+    multiplier <- c(ms = 0.001, d = 86400, h = 3600, m = 60, s = 1)
+    sum(as.numeric(hits[, 2]) * unname(multiplier[hits[, 3]]), na.rm = TRUE)
+  }, numeric(1))
+}
+
+parse_bytes <- function(x) {
+  x <- replace_na(as.character(x), "0")
+  x <- str_trim(x)
+  x[x == "0"] <- "0 B"
+
+  hit <- str_match(x, "^([0-9.]+)\\s*([KMGTPE]?B)$")
+  value <- as.numeric(hit[, 2])
+  unit <- str_to_upper(hit[, 3])
+
+  multiplier <- c(
+    B = 1,
+    KB = 1024,
+    MB = 1024^2,
+    GB = 1024^3,
+    TB = 1024^4,
+    PB = 1024^5,
+    EB = 1024^6
+  )
+
+  value * unname(multiplier[unit])
+}
+
+clean_task_name <- function(x) {
+  str_trim(str_replace(x, "\\s*\\([0-9]+\\)$", ""))
+}
+```
+
+## Load and process the execution trace
+
+```{r load-and-process}
+trace <- read_tsv(
+  input_file,
+  show_col_types = FALSE,
+  progress = FALSE,
+  name_repair = "minimal"
+)
+
+task_metrics <- trace %>%
+  filter(status %in% c("COMPLETED", "CACHED")) %>%
+  mutate(
+    process = clean_task_name(name),
+    process = recode(process, create_kmers_database = "kmc3"),
+    submit_time = ymd_hms(submit, tz = "UTC"),
+    realtime_seconds = parse_duration_seconds(realtime),
+    duration_seconds = parse_duration_seconds(duration),
+    cpu_percent = as.numeric(str_remove(`%cpu`, "%")),
+    cpu_time_seconds = realtime_seconds * cpu_percent / 100,
+    peak_rss_GiB = parse_bytes(peak_rss) / 1024^3,
+    peak_vmem_GiB = parse_bytes(peak_vmem) / 1024^3,
+    read_GiB = parse_bytes(rchar) / 1024^3,
+    write_GiB = parse_bytes(wchar) / 1024^3,
+    cpu_hours = cpu_time_seconds / 3600,
+    wall_hours = realtime_seconds / 3600
+  )
+
+process_summary <- task_metrics %>%
+  group_by(process) %>%
+  summarise(
+    n_tasks = n(),
+    total_wall_hours = sum(wall_hours, na.rm = TRUE),
+    total_cpu_hours = sum(cpu_hours, na.rm = TRUE),
+    max_peak_rss_GiB = max(peak_rss_GiB, na.rm = TRUE),
+    max_peak_vmem_GiB = max(peak_vmem_GiB, na.rm = TRUE),
+    total_read_GiB = sum(read_GiB, na.rm = TRUE),
+    total_write_GiB = sum(write_GiB, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(total_cpu_hours >= 0.5) %>%
+  arrange(desc(total_cpu_hours))
+
+if (nrow(process_summary) == 0) {
+  stop("No processes passed the 0.5 CPU-hour inclusion threshold.")
+}
+
+included_processes <- process_summary$process
+task_metrics_filtered <- task_metrics %>%
+  filter(process %in% included_processes)
+
+write_tsv(
+  task_metrics,
+  file.path(output_dir, "Supplementary_Figure_2_task_metrics.tsv"),
+  na = "NA"
+)
+write_tsv(
+  process_summary,
+  file.path(output_dir, "Supplementary_Figure_2_process_summary.tsv"),
+  na = "NA"
+)
+
+process_summary
+```
+
+## Build the four-panel figure
+
+```{r build-figure}
+process_order <- process_summary %>%
+  arrange(desc(total_cpu_hours)) %>%
+  pull(process)
+
+process_palette <- c(
+  FastKM = "#D55E00",
+  seqtk = "#E69F00",
+  kmc3 = "#009E73",
+  predictRF = "#0072B2",
+  trainRF = "#CC79A7"
+)
+
+missing_colors <- setdiff(process_order, names(process_palette))
+if (length(missing_colors) > 0) {
+  stop(
+    "No fixed color was defined for: ",
+    paste(missing_colors, collapse = ", ")
+  )
+}
+
+process_summary_plot <- process_summary %>%
+  mutate(process = factor(process, levels = process_order))
+
+task_metrics_plot <- task_metrics_filtered %>%
+  mutate(process = factor(process, levels = process_order))
+
+theme_resource <- function(base_size = 12) {
+  theme_bw(base_size = base_size, base_family = "Helvetica") +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(color = "#E6E6E6", linewidth = 0.35),
+      panel.border = element_rect(color = "#333333", linewidth = 0.55),
+      axis.title = element_text(color = "#111111", face = "plain"),
+      axis.text = element_text(color = "#3D3D3D"),
+      strip.background = element_rect(fill = "#E6E6E6", color = "#333333"),
+      strip.text = element_text(face = "bold", color = "#222222"),
+      plot.margin = margin(7, 9, 7, 7)
+    )
+}
+
+p_cpu <- process_summary_plot %>%
+  mutate(process_axis = fct_reorder(process, total_cpu_hours)) %>%
+  ggplot(aes(process_axis, total_cpu_hours, fill = process)) +
+  geom_col(width = 0.72) +
+  coord_flip() +
+  scale_fill_manual(values = process_palette, drop = FALSE) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  labs(x = NULL, y = "Total CPU-hours", tag = "A") +
+  theme_resource()
+
+p_memory <- process_summary_plot %>%
+  mutate(process_axis = fct_reorder(process, max_peak_rss_GiB)) %>%
+  ggplot(aes(process_axis, max_peak_rss_GiB, fill = process)) +
+  geom_col(width = 0.72) +
+  coord_flip() +
+  scale_fill_manual(values = process_palette, drop = FALSE) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  labs(x = NULL, y = "Maximum peak RAM (GiB)", tag = "B") +
+  theme_resource()
+
+p_scatter <- task_metrics_plot %>%
+  ggplot(aes(wall_hours, peak_rss_GiB, fill = process)) +
+  geom_point(
+    shape = 21,
+    size = 3.4,
+    alpha = 0.88,
+    color = "#202020",
+    stroke = 0.35
+  ) +
+  scale_fill_manual(values = process_palette, drop = FALSE) +
+  scale_x_continuous(expand = expansion(mult = c(0.02, 0.05))) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.05))) +
+  labs(x = "Task wall time (hours)", y = "Task peak RAM (GiB)", tag = "C") +
+  theme_resource()
+
+p_io <- process_summary_plot %>%
+  mutate(io_total_GiB = total_read_GiB + total_write_GiB) %>%
+  select(process, io_total_GiB, total_read_GiB, total_write_GiB) %>%
+  pivot_longer(
+    cols = c(total_read_GiB, total_write_GiB),
+    names_to = "io_type",
+    values_to = "GiB"
+  ) %>%
+  mutate(
+    io_type = recode(
+      io_type,
+      total_read_GiB = "Read",
+      total_write_GiB = "Write"
+    ),
+    io_type = factor(io_type, levels = c("Read", "Write")),
+    process_axis = fct_reorder(process, io_total_GiB)
+  ) %>%
+  ggplot(aes(process_axis, GiB, fill = process)) +
+  geom_col(width = 0.7) +
+  coord_flip() +
+  facet_wrap(~io_type, ncol = 1, scales = "free_x") +
+  scale_fill_manual(values = process_palette, drop = FALSE) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  labs(x = NULL, y = "Total I/O (GiB)", tag = "D") +
+  theme_resource(base_size = 11)
+
+legend_source <- p_cpu +
+  guides(fill = guide_legend(nrow = 1, byrow = TRUE)) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.key.size = unit(0.85, "lines"),
+    legend.text = element_text(size = 11)
+  )
+
+shared_legend <- cowplot::get_legend(legend_source)
+
+main_plot <- (
+  (p_cpu | p_memory) /
+    (p_scatter | p_io)
+) +
+  plot_layout(widths = c(1, 1.03), heights = c(1, 1.03)) &
+  theme(
+    legend.position = "none",
+    plot.tag = element_text(face = "bold", size = 17, color = "#111111")
+  )
+
+combined_plot <- wrap_plots(
+  main_plot,
+  wrap_elements(full = shared_legend),
+  ncol = 1,
+  heights = c(1, 0.055)
+)
+
+combined_plot
+```
+
+## Publication-quality exports
+
+```{r export-figure}
+figure_width <- 10.5
+figure_height <- 8.2
+
+ggsave(
+  filename = file.path(output_dir, "Supplementary_Figure_2.pdf"),
+  plot = combined_plot,
+  device = cairo_pdf,
+  width = figure_width,
+  height = figure_height,
+  units = "in",
+  bg = "white"
+)
+
+ggsave(
+  filename = file.path(output_dir, "Supplementary_Figure_2_600dpi.png"),
+  plot = combined_plot,
+  device = ragg::agg_png,
+  width = figure_width,
+  height = figure_height,
+  units = "in",
+  dpi = 600,
+  bg = "white"
+)
+
+ragg::agg_tiff(
+  filename = file.path(output_dir, "Supplementary_Figure_2_600dpi.tiff"),
+  width = figure_width,
+  height = figure_height,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  background = "white"
+)
+print(combined_plot)
+invisible(dev.off())
+```
+
+## Reproducibility information
+
+```{r session-info}
+sessionInfo()
+```

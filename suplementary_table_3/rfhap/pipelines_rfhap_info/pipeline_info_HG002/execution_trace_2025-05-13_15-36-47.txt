@@ -1,0 +1,22 @@
+task_id	hash	native_id	name	status	exit	submit	duration	realtime	%cpu	peak_rss	peak_vmem	rchar	wchar
+2	d1/c8d07e	35128	create_kmers_database (2)	COMPLETED	0	2025-05-13 15:37:34.732	14m 40s	14m 35s	1006.0%	11.3 GB	14.4 GB	436 GB	206.9 GB
+5	a2/28b777	35143	print_paths (1)	COMPLETED	0	2025-05-13 15:52:14.977	4.9s	49ms	63.0%	0	0	208.3 KB	1020 B
+1	d3/4600a3	35127	create_kmers_database (1)	COMPLETED	0	2025-05-13 15:37:34.679	28m 35s	28m 32s	1193.0%	11.3 GB	17.9 GB	429.7 GB	210.6 GB
+6	f6/447007	35154	print_paths (2)	COMPLETED	0	2025-05-13 16:06:10.000	4.9s	53ms	83.6%	0	0	208.3 KB	1020 B
+3	65/03943a	35126	create_kmers_database (3)	COMPLETED	0	2025-05-13 15:37:34.623	33m 25s	33m 24s	1087.5%	11.3 GB	17.3 GB	446.6 GB	206.9 GB
+7	c8/cd1447	35157	print_paths (3)	COMPLETED	0	2025-05-13 16:10:59.999	5s	46ms	76.2%	0	0	208.3 KB	1020 B
+4	54/ed0344	35125	create_kmers_database (4)	COMPLETED	0	2025-05-13 15:37:34.582	40m 15s	40m 10s	1182.2%	15.9 GB	23.1 GB	444.3 GB	202.2 GB
+8	b6/26642f	35168	print_paths (4)	COMPLETED	0	2025-05-13 16:17:50.037	4.9s	53ms	83.0%	0	0	208.3 KB	1020 B
+9	6e/fa6d50	35169	sort_kmer_db (1)	COMPLETED	0	2025-05-13 16:17:55.059	4.9s	27ms	66.7%	0	0	135.1 KB	3.2 KB
+10	6e/d76325	35170	FastKM (1)	ABORTED	-	2025-05-13 16:18:00.043	-	-	-	-	-	-	-
+16	03/938e7e	35171	FastKM (7)	ABORTED	-	2025-05-13 16:18:00.079	-	-	-	-	-	-	-
+20	5b/e2fe1f	35172	FastKM (11)	ABORTED	-	2025-05-13 16:18:00.110	-	-	-	-	-	-	-
+14	a4/f46bcc	35173	FastKM (5)	ABORTED	-	2025-05-13 16:18:00.140	-	-	-	-	-	-	-
+21	8b/aca8b4	35174	FastKM (12)	ABORTED	-	2025-05-13 16:18:00.173	-	-	-	-	-	-	-
+12	d9/65e2a4	35175	FastKM (3)	ABORTED	-	2025-05-13 16:18:00.203	-	-	-	-	-	-	-
+19	0c/511a85	35176	FastKM (10)	ABORTED	-	2025-05-13 16:18:00.233	-	-	-	-	-	-	-
+18	f5/df09a9	35177	FastKM (9)	ABORTED	-	2025-05-13 16:18:00.263	-	-	-	-	-	-	-
+11	59/e85590	35178	FastKM (2)	ABORTED	-	2025-05-13 16:18:00.292	-	-	-	-	-	-	-
+15	6a/1a8e89	35179	FastKM (6)	ABORTED	-	2025-05-13 16:18:00.321	-	-	-	-	-	-	-
+17	55/86fddf	35180	FastKM (8)	ABORTED	-	2025-05-13 16:18:00.349	-	-	-	-	-	-	-
+13	d4/6c5d86	35181	FastKM (4)	ABORTED	-	2025-05-13 16:18:00.377	-	-	-	-	-	-	-

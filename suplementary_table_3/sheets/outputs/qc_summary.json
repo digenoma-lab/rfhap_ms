@@ -1,0 +1,53 @@
+{
+  "datasets": {
+    "HG002": {
+      "component_rows": 13,
+      "stage_total_rows": 4,
+      "end_to_end_rows": 2,
+      "formula_cells": 12,
+      "missing_components": [],
+      "duplicate_components": [],
+      "passed": true
+    },
+    "HG005": {
+      "component_rows": 13,
+      "stage_total_rows": 4,
+      "end_to_end_rows": 2,
+      "formula_cells": 12,
+      "missing_components": [],
+      "duplicate_components": [],
+      "passed": true
+    },
+    "HG01109": {
+      "component_rows": 13,
+      "stage_total_rows": 4,
+      "end_to_end_rows": 2,
+      "formula_cells": 12,
+      "missing_components": [],
+      "duplicate_components": [],
+      "passed": true
+    },
+    "HG01243": {
+      "component_rows": 13,
+      "stage_total_rows": 4,
+      "end_to_end_rows": 2,
+      "formula_cells": 12,
+      "missing_components": [],
+      "duplicate_components": [],
+      "passed": true
+    }
+  },
+  "passed": true,
+  "config": "/Users/damarizgonzalez/rfhap_ms/suplementary_table_3/sheets/config.json",
+  "workbook": "/Users/damarizgonzalez/rfhap_ms/suplementary_table_3/sheets/outputs/Supplementary_Table_3_CPU_RAM_Numbers.xlsx",
+  "selected_traces": {
+    "HG002": "/Users/damarizgonzalez/rfhap_ms/suplementary_table_3/rfhap/pipelines_rfhap_info/pipeline_info_HG002/execution_trace_2025-05-13_16-33-34.txt",
+    "HG005": "/Users/damarizgonzalez/rfhap_ms/suplementary_table_3/rfhap/pipelines_rfhap_info/pipeline_info_HG005/execution_trace_2025-11-27_10-07-41.txt",
+    "HG01109": "/Users/damarizgonzalez/rfhap_ms/suplementary_table_3/rfhap/pipelines_rfhap_info/pipeline_info_HG01109/execution_trace_2025-11-24_13-41-45.txt",
+    "HG01243": "/Users/damarizgonzalez/rfhap_ms/suplementary_table_3/rfhap/pipelines_rfhap_info/pipeline_info_HG01243/execution_trace_2025-11-22_12-10-07.txt"
+  },
+  "external_logs_parsed": 20,
+  "component_rows_total": 52,
+  "stage_total_rows_total": 16,
+  "end_to_end_rows_total": 8
+}

@@ -1,0 +1,5 @@
+task_id	hash	native_id	name	status	exit	submit	duration	realtime	%cpu	peak_rss	peak_vmem	rchar	wchar
+3	2b/e0357a	129630	create_kmers_database (3)	ABORTED	-	2025-11-22 12:06:45.962	-	-	-	-	-	-	-
+2	07/f7169e	129631	create_kmers_database (2)	ABORTED	-	2025-11-22 12:06:46.005	-	-	-	-	-	-	-
+1	40/4d56c7	129632	create_kmers_database (1)	ABORTED	-	2025-11-22 12:06:46.040	-	-	-	-	-	-	-
+4	4b/63dbc1	129633	create_kmers_database (4)	ABORTED	-	2025-11-22 12:06:46.077	-	-	-	-	-	-	-
