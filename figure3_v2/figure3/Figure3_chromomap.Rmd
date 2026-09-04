@@ -49,8 +49,8 @@ prepare_track_map <- function(path, mirror = FALSE, remove_legend = FALSE) {
   # is vector-based and shared by both haplotypes.
   if (remove_legend) rgb[1450:1710, 920:1260, ] <- 1
 
-  # Common crop preserves identical vertical coordinates in both maps.
-  rgb <- rgb[55:1965, 145:1550, , drop = FALSE]
+  # Common crop removes source labels/title while preserving full chromosome ends.
+  rgb <- rgb[55:1965, 130:1905, , drop = FALSE]
   if (mirror) rgb <- rgb[, dim(rgb)[2]:1, , drop = FALSE]
   rgb
 }
