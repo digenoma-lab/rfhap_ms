@@ -1,5 +1,5 @@
 ---
-title: "create_tables.Rmd"
+title: "create_tables_v2.Rmd"
 output: html_document
 date: "2026-06-30"
 ---
@@ -16,8 +16,10 @@ library(gtable)
 library(data.table)
 library(VennDiagram)
 
-HG002_rfhap <- readRDS("HG002_rfhap_final.rds")
-HG002_yak   <- readRDS("hg002_triobin_joined_recoded.rds")
+figure_dir <- "/Users/damarizgonzalez/rfhap_ms/suplementary_figure8"
+
+HG002_rfhap <- readRDS(file.path(figure_dir, "HG002_rfhap_final.rds"))
+HG002_yak   <- readRDS(file.path(figure_dir, "hg002_triobin_joined_recoded.rds"))
 ```
 
 ```{r}
@@ -53,10 +55,10 @@ yak_long <- yak_counts %>%
   mutate(
     method = recode(
       kmer,
-      k24 = "k = 24",
-      k27 = "k = 27",
-      k30 = "k = 30",
-      k33 = "k = 33"
+      k24 = "YAK k = 24",
+      k27 = "YAK k = 27",
+      k30 = "YAK k = 30",
+      k33 = "YAK k = 33"
     )
   ) %>%
   select(method, class, count)
@@ -71,7 +73,7 @@ comparison <- bind_rows(rfhap_long, yak_long) %>%
   mutate(
     method = factor(
       method,
-      levels = c("RFhap", "k = 24", "k = 27", "k = 30", "k = 33")
+      levels = c("RFhap", "YAK k = 24", "YAK k = 27", "YAK k = 30", "YAK k = 33")
     ),
     class = factor(
       class,
@@ -93,10 +95,10 @@ get_counts <- function(method_name) {
 }
 
 rf  <- get_counts("RFhap")
-k24 <- get_counts("k = 24")
-k27 <- get_counts("k = 27")
-k30 <- get_counts("k = 30")
-k33 <- get_counts("k = 33")
+k24 <- get_counts("YAK k = 24")
+k27 <- get_counts("YAK k = 27")
+k30 <- get_counts("YAK k = 30")
+k33 <- get_counts("YAK k = 33")
 ```
 
 ```{r}
@@ -200,10 +202,10 @@ table_grob <- gtable_add_rows(
 
 titles <- c(
   "RFhap",
-  "k = 24",
-  "k = 27",
-  "k = 30",
-  "k = 33"
+  "YAK k = 24",
+  "YAK k = 27",
+  "YAK k = 30",
+  "YAK k = 33"
 )
 
 starts <- c(1, 4, 7, 10, 13)
@@ -540,10 +542,10 @@ gc()
 venn_legend <- legendGrob(
   labels = c(
     "RFhap",
-    "k = 24",
-    "k = 27",
-    "k = 30",
-    "k = 33"
+    "YAK k = 24",
+    "YAK k = 27",
+    "YAK k = 30",
+    "YAK k = 33"
   ),
   pch = 15,
   gp = gpar(
@@ -606,7 +608,7 @@ grid.draw(final_figure)
 ```
 ```{r}
 pdf(
-  "RFhap_Yak_complete_figure.pdf",
+  file.path(figure_dir, "RFhap_Yak_complete_figure_v2.pdf"),
   width = 11,
   height = 11.86
 )
@@ -618,9 +620,11 @@ dev.off()
 
 ```{r}
 png(
-  "RFhap_Yak_complete_figure.png",
+  file.path(figure_dir, "RFhap_Yak_complete_figure_v2.png"),
   width = 11,
-  height = 11.86
+  height = 11.86,
+  units = "in",
+  res = 300
 )
 
 grid.draw(final_figure)
